@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ticketelo
+    runtime: node
+    plan: free
+    region: frankfurt
+    # Auto-deploy on every commit pushed to the repo's default branch.
+    autoDeployTrigger: commit
+    # --include=dev because Render sets NODE_ENV=production, which would
+    # otherwise skip typescript/tailwind and break `next build`.
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
