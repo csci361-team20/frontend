@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useDemo } from "./demo-provider";
 import { Icon, Notice, Poster } from "./primitives";
 import { initialEvents, type Role } from "@/lib/demo-data";
+import { api } from "@/lib/api";
 
 export function AuthPage({
   register,
@@ -17,13 +18,14 @@ export function AuthPage({
 }) {
   const { state, update } = useDemo();
   const router = useRouter();
-  const [role, setRole] = useState<Role>(
-    initialRole === "organizer" ? "organizer" : "attendee",
-  );
+  const role: Role = initialRole === "organizer" ? "organizer" : "attendee";
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   function destination(userRole: Role) {
     return next?.startsWith("/") &&
       !next.startsWith("//") &&
+      !/[\\\u0000-\u0020]/.test(next) &&
       !next.startsWith("/sign-in") &&
       !next.startsWith("/register")
       ? next
@@ -36,32 +38,49 @@ export function AuthPage({
     update((s) => ({ ...s, currentUserId: id }));
     router.push(destination(profile.role));
   }
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current) return;
     setError("");
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const email = String(data.get("email")).trim().toLowerCase();
     const existing = state.profiles.find((p) => p.email === email);
     if (!register) {
       if (!existing)
         return setError(
-          "No profile with this email in this browser yet. Create one below, or try a demo profile.",
+          "No demo profile with this email exists in this browser. Try a sample profile below. Backend accounts cannot sign in yet.",
         );
       return enter(existing.id);
     }
-    if (existing)
-      return setError(
-        "That email already has a demo profile. Sign in instead.",
-      );
     const name = String(data.get("name")).trim();
-    if (!name) return setError("Tell us your name.");
-    const id = crypto.randomUUID();
-    update((s) => ({
-      ...s,
-      profiles: [...s.profiles, { id, name, email, role }],
-      currentUserId: id,
-    }));
-    router.push(destination(role));
+    if (name.length < 2 || !/^\p{L}+$/u.test(name.replace(/[ '-]/g, "")))
+      return setError(
+        "Use at least two characters for your name, with letters, spaces, hyphens or apostrophes only.",
+      );
+    const password = String(data.get("password"));
+    if (password !== data.get("confirm-password"))
+      return setError("Your passwords do not match.");
+    submitting.current = true;
+    setBusy(true);
+    try {
+      const account = await api.users.register({
+        full_name: name,
+        email,
+        password,
+      });
+      form.reset();
+      router.push(`/profile?id=${encodeURIComponent(account.id)}&created=1`);
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Could not create your account. Please try again.",
+      );
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
   }
   const suffix = `${next ? `&next=${encodeURIComponent(next)}` : ""}&role=${role}`;
   return (
@@ -109,89 +128,105 @@ export function AuthPage({
           <div className="demo-note">
             <span className="status-dot" />
             <span>
-              Frontend preview. Profiles are saved in this browser; no password
-              or payment is required.
+              {register
+                ? "Create an account with the account service. Sign-in will be available when backend authentication is ready."
+                : "Backend sign-in is not available yet. Demo profiles let you explore tickets and organizer tools in this browser. They do not sign you into a backend account."}
             </span>
           </div>
-          <form onSubmit={submit} className="stack-form">
+          <form onSubmit={submit} className="stack-form" aria-busy={busy}>
             {register && (
-              <>
-                <fieldset className="role-picker">
-                  <legend>I&apos;m here to</legend>
-                  <button
-                    type="button"
-                    className={role === "attendee" ? "selected" : ""}
-                    aria-pressed={role === "attendee"}
-                    onClick={() => setRole("attendee")}
-                  >
-                    <Icon name="ticket" />
-                    <strong>Find my next event</strong>
-                    <small>Attendee</small>
-                  </button>
-                  <button
-                    type="button"
-                    className={role === "organizer" ? "selected" : ""}
-                    aria-pressed={role === "organizer"}
-                    onClick={() => setRole("organizer")}
-                  >
-                    <Icon name="grid" />
-                    <strong>Bring people together</strong>
-                    <small>Organizer</small>
-                  </button>
-                </fieldset>
-                <label>
-                  Your name
-                  <input
-                    name="name"
-                    autoComplete="name"
-                    placeholder="First and last name"
-                    required
-                    maxLength={80}
-                  />
-                </label>
-              </>
+              <label>
+                Your name
+                <input
+                  name="name"
+                  autoComplete="name"
+                  placeholder="First and last name"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  disabled={busy}
+                />
+              </label>
             )}
             <label>
-              Email address
+              {register ? "Email address" : "Demo profile email"}
               <input
                 name="email"
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
                 required
-                maxLength={200}
+                maxLength={255}
+                disabled={busy}
               />
             </label>
+            {register && (
+              <>
+                <label>
+                  Password
+                  <input
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    maxLength={128}
+                    disabled={busy}
+                    aria-describedby="password-hint"
+                  />
+                  <span className="field-hint" id="password-hint">
+                    Use 8–128 characters.
+                  </span>
+                </label>
+                <label>
+                  Confirm password
+                  <input
+                    name="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    maxLength={128}
+                    disabled={busy}
+                  />
+                </label>
+              </>
+            )}
             {error && <Notice error>{error}</Notice>}
-            <button className="btn btn-primary btn-full">
-              {register ? "Create demo profile" : "Continue to my profile"}
+            <button className="btn btn-primary btn-full" disabled={busy}>
+              {busy
+                ? "Creating account…"
+                : register
+                  ? "Create account"
+                  : "Open demo profile"}
               <Icon name="arrow" size={17} />
             </button>
           </form>
           <p className="auth-switch">
-            {register ? "Already have a profile?" : "New around here?"}{" "}
+            {register ? "Want to explore the demo?" : "New around here?"}{" "}
             <Link
               href={`${register ? "/sign-in" : "/register"}?${suffix.slice(1)}`}
             >
-              {register ? "Sign in" : "Create a profile"}
+              {register ? "Open a demo profile" : "Create an account"}
             </Link>
           </p>
-          <div className="demo-divider">
-            <span>Or take a look around</span>
-          </div>
-          <div className="demo-role-buttons">
-            <button className="btn btn-secondary" onClick={() => enter("dana")}>
-              <Icon name="ticket" size={17} />
-              Try attendee
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => enter("arman")}
-            >
-              <Icon name="grid" size={17} />
-              Try organizer
-            </button>
-          </div>
+          {!register && (
+            <>
+              <div className="demo-divider">
+                <span>Or take a look around</span>
+              </div>
+              <div className="demo-role-buttons">
+                <button className="btn btn-secondary" onClick={() => enter("dana")}>
+                  <Icon name="ticket" size={17} />
+                  Try attendee
+                </button>
+                <button className="btn btn-secondary" onClick={() => enter("arman")}>
+                  <Icon name="grid" size={17} />
+                  Try organizer
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </main>

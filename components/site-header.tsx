@@ -56,6 +56,12 @@ export function SiteHeader() {
                     <small>{user.role} · demo profile</small>
                   </p>
                   <Link
+                    href="/profile"
+                    onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}
+                  >
+                    Profile
+                  </Link>
+                  <Link
                     href="/orders"
                     onClick={(e) =>
                       e.currentTarget
@@ -108,13 +114,13 @@ export function SiteHeader() {
                       router.push("/");
                     }}
                   >
-                    Sign out
+                    Leave demo profile
                   </button>
                 </div>
               </details>
             ) : (
               <Link className="btn btn-small btn-light" href="/sign-in">
-                Sign in <Icon name="arrow" size={15} />
+                Sign in / demo <Icon name="arrow" size={15} />
               </Link>
             )}
           </div>

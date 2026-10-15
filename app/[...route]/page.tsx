@@ -5,7 +5,8 @@ import { RoleApp } from "@/components/role-app";
 const titles: Record<string, string> = {
   events: "What’s on",
   "sign-in": "Welcome back",
-  register: "Create a profile",
+  register: "Create an account",
+  profile: "Account profile",
   orders: "Your tickets",
   checkout: "Your booking",
   organizer: "Your box office",
@@ -28,7 +29,7 @@ export default async function Page({
 }) {
   const { route } = await params;
   const valid =
-    /^(events(?:\/[^/]+)?|orders(?:\/[^/]+)?|checkout\/[^/]+|sign-in|register|organizer(?:\/events\/[^/]+)?|check-in)$/.test(
+    /^(events(?:\/[^/]+)?|orders(?:\/[^/]+)?|checkout\/[^/]+|sign-in|register|profile|organizer(?:\/events\/[^/]+)?|check-in)$/.test(
       route.join("/"),
     );
   if (!valid) notFound();

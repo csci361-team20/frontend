@@ -449,7 +449,7 @@ export function CheckoutPage({
       <div className="workspace">
         <EmptyState
           title="Let’s put a name on your tickets."
-          description="Sign in or create a demo profile to keep your tickets and orders together."
+          description="Open a demo profile to try booking tickets. Backend account sign-in is not available yet."
           href={`/sign-in?next=${encodeURIComponent(`/checkout/${id}?tickets=${encodeURIComponent(JSON.stringify(quantities))}`)}`}
           label="Continue to sign in"
         />

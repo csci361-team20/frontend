@@ -1,5 +1,6 @@
 "use client";
 import { AuthPage } from "./auth-pages";
+import { ProfilePage } from "./profile-page";
 import {
   BrowsePage,
   CheckoutPage,
@@ -21,6 +22,7 @@ export function RoleApp({
   route: string[];
   query: Record<string, string>;
 }) {
+  if (route[0] === "profile") return <ProfilePage id={query.id} created={query.created === "1"} />;
   if (route[0] === "sign-in" || route[0] === "register")
     return (
       <AuthPage
