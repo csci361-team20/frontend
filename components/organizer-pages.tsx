@@ -29,7 +29,6 @@ import {
   PageIntro,
   Poster,
 } from "./primitives";
-import { useI18n, localeCodes } from "@/lib/i18n";
 
 function OrganizerShell({
   children,
@@ -38,50 +37,57 @@ function OrganizerShell({
   children: ReactNode;
   active?: string;
 }) {
-  const { t } = useI18n();
   return (
     <div className="organizer-shell">
       <aside className="organizer-sidebar">
-        <p className="eyebrow">{t("Behind the scenes")}</p>
+        <p className="eyebrow">Behind the scenes</p>
         <p className="workspace-name">
-          {t("Your box office")}<span>{t("Organizer workspace")}</span>
+          Your box office<span>Organizer workspace</span>
         </p>
-        <nav aria-label={t("Organizer navigation")}>
+        <nav aria-label="Organizer navigation">
           <Link
             className={active === "overview" ? "active" : ""}
             href="/organizer"
           >
             <Icon name="grid" size={18} />
-            {t("Overview")}</Link>
+            Overview
+          </Link>
           <Link
             className={active === "events" ? "active" : ""}
             href="/organizer?view=events"
           >
             <Icon name="calendar" size={18} />
-            {t("My events")}</Link>
+            My events
+          </Link>
           <Link
             className={active === "check-in" ? "active" : ""}
             href="/check-in"
           >
             <Icon name="users" size={18} />
-            {t("Check-in desk")}</Link>
-          <Link href="/support"><Icon name="mail" size={18} />{t("Support inbox")}</Link>
-          <Link href="/support/new">{t("Contact platform support")}</Link>
+            Check-in desk
+          </Link>
+          <Link href="/support"><Icon name="mail" size={18} />Support inbox</Link>
+          <Link href="/support/new">Contact platform support</Link>
         </nav>
         <Link className="btn btn-primary btn-full" href="/organizer/events/new">
           <Icon name="plus" size={16} />
-          {t("Create event")}</Link>
+          Create event
+        </Link>
         <div className="sidebar-note">
           <Icon name="ticket" size={23} />
           <p>
-            {t("You set the stage.")}<br />
-            {t("We'll keep the list.")}</p>
+            You set the stage.
+            <br />
+            We&apos;ll keep the list.
+          </p>
           <span>
-            {t("Demo workspace")}<br />
-            {t("Changes stay in this browser.")}</span>
+            Demo workspace
+            <br />
+            Changes stay in this browser.
+          </span>
         </div>
         <Link className="text-link muted" href="/events">
-          {t("Back to the audience")}{" "}<Icon name="external" size={13} />
+          Back to the audience <Icon name="external" size={13} />
         </Link>
       </aside>
       <main className="organizer-main">{children}</main>
@@ -111,7 +117,6 @@ function Stat({
   );
 }
 export function OrganizerPage({ view }: { view?: string }) {
-  const { t, locale } = useI18n();
   const { state, user, ready } = useDemo();
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -136,62 +141,65 @@ export function OrganizerPage({ view }: { view?: string }) {
       <PageIntro
         eyebrow={
           view === "events"
-            ? t("The things you’re putting into the world")
-            : t("A little planning. A full house.")
+            ? "The things you’re putting into the world"
+            : "A little planning. A full house."
         }
         title={
           view === "events"
-            ? t("Your events.")
-            : t("Hello, {name}.", { name: user.name.split(" ")[0] })
+            ? "Your events."
+            : `Hello, ${user.name.split(" ")[0]}.`
         }
         description={
           view === "events"
-            ? t("From the first draft to the last person through the door.")
-            : t("Here’s how things are shaping up at your box office.")
+            ? "From the first draft to the last person through the door."
+            : "Here’s how things are shaping up at your box office."
         }
         action={
           <Link className="btn btn-primary" href="/organizer/events/new">
             <Icon name="plus" size={16} />
-            {t("Create event")}</Link>
+            Create event
+          </Link>
         }
       />
       {view !== "events" && (
         <>
           <div className="stats-row">
             <Stat
-              label={t("Demo ticket sales")}
+              label="Demo ticket sales"
               value={amount(revenue)}
-              note={t("Across confirmed orders")}
+              note="Across confirmed orders"
               icon="chart"
             />
             <Stat
-              label={t("Tickets booked")}
+              label="Tickets booked"
               value={sold}
-              note={t("Confirmed orders: {count}", { count: orders.length })}
+              note={`${orders.length} confirmed ${orders.length === 1 ? "order" : "orders"}`}
               icon="ticket"
             />
             <Stat
-              label={t("Published events")}
+              label="Published events"
               value={events.filter((e) => e.status === "published").length}
-              note={t("Draft events: {count}", { count: events.filter((e) => e.status === "draft").length })}
+              note={`${events.filter((e) => e.status === "draft").length} drafts in the wings`}
               icon="calendar"
             />
           </div>
           <div className="dashboard-note">
             <span className="status-dot" />
             <p>
-              {t("Your stage, your rules. Open an event to manage tickets, check the guest list, or add your door team.")}</p>
+              Your stage, your rules. Open an event to manage tickets, check the
+              guest list, or add your door team.
+            </p>
             <Icon name="arrow" size={20} />
           </div>
         </>
       )}
       <div className="section-heading events-heading">
-        <h2>{view === "events" ? t("The event list") : t("On your calendar")}</h2>
+        <h2>{view === "events" ? "The event list" : "On your calendar"}</h2>
         <label className="compact-search">
           <Icon name="search" size={16} />
           <input
-            aria-label={t("Search your events")}
-            placeholder={t("Find an event")}
+            aria-label="Search your events"
+            placeholder="Find an event"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -206,10 +214,10 @@ export function OrganizerPage({ view }: { view?: string }) {
             onClick={() => setFilter(status)}
           >
             {status === "all"
-              ? t("All events")
+              ? "All events"
               : status === "draft"
-                ? t("Drafts")
-                : t("Published")}
+                ? "Drafts"
+                : "Published"}
             <span>
               {
                 events.filter((e) => status === "all" || e.status === status)
@@ -223,7 +231,7 @@ export function OrganizerPage({ view }: { view?: string }) {
         <div className="managed-events">
           {visible.map((event) => {
             const booked = soldCount(state.orders, event.id);
-            const capacity = event.tickets.reduce((s, item) => s + item.capacity, 0);
+            const capacity = event.tickets.reduce((s, t) => s + t.capacity, 0);
             const total = orders
               .filter((o) => o.eventId === event.id)
               .reduce((s, o) => s + o.total, 0);
@@ -240,11 +248,11 @@ export function OrganizerPage({ view }: { view?: string }) {
                   <span
                     className={`status-badge ${event.status === "published" ? "status-live" : ""}`}
                   >
-                    {event.status === "published" ? t("Published") : t("Draft")}
+                    {event.status === "published" ? "Published" : "Draft"}
                   </span>
                   <h3>{event.title}</h3>
                   <p>
-                    {dateLabel(event.date, { weekday: "short" }, localeCodes[locale])} ·{" "}
+                    {dateLabel(event.date, { weekday: "short" })} ·{" "}
                     {event.venue}
                   </p>
                 </div>
@@ -259,11 +267,11 @@ export function OrganizerPage({ view }: { view?: string }) {
                       }}
                     />
                   </div>
-                  <small>{t("tickets booked")}</small>
+                  <small>tickets booked</small>
                 </div>
                 <div className="managed-revenue">
-                  <strong>{amount(total, localeCodes[locale])}</strong>
-                  <small>{t("demo sales")}</small>
+                  <strong>{amount(total)}</strong>
+                  <small>demo sales</small>
                 </div>
                 <Icon name="arrow" size={18} />
               </Link>
@@ -275,16 +283,16 @@ export function OrganizerPage({ view }: { view?: string }) {
           icon="calendar"
           title={
             events.length
-              ? t("No events match just yet.")
-              : t("It starts with an idea.")
+              ? "No events match just yet."
+              : "It starts with an idea."
           }
           description={
             events.length
-              ? t("Try a different search or status.")
-              : t("Give it a name, pick a date, and invite the city in.")
+              ? "Try a different search or status."
+              : "Give it a name, pick a date, and invite the city in."
           }
           href="/organizer/events/new"
-          label={t("Create your first event")}
+          label="Create your first event"
         />
       )}
     </OrganizerShell>
@@ -306,7 +314,6 @@ export function EventEditor({
   existing?: Event;
   onSaved?: () => void;
 }) {
-  const { t } = useI18n();
   const { user, update, state } = useDemo();
   const router = useRouter();
   const [types, setTypes] = useState<TicketType[]>(
@@ -324,7 +331,7 @@ export function EventEditor({
   const [message, setMessage] = useState("");
   function changeType(index: number, patch: Partial<TicketType>) {
     setTypes((items) =>
-      items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+      items.map((t, i) => (i === index ? { ...t, ...patch } : t)),
     );
   }
   function submit(e: FormEvent<HTMLFormElement>) {
@@ -354,11 +361,11 @@ export function EventEditor({
       update((s) => saveEvent(s, event));
       if (!existing) router.push(`/organizer/events/${id}`);
       else {
-        setMessage(t("Event details saved."));
+        setMessage("Event details saved.");
         onSaved?.();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Could not save this event."));
+      setError(e instanceof Error ? e.message : "Could not save this event.");
     }
   }
   return (
@@ -366,52 +373,56 @@ export function EventEditor({
       <section className="editor-section">
         <div className="editor-section-label">
           <span className="step-number">01</span>
-          <h2>{t("The essentials")}</h2>
-          <p>{t("Give people a reason to put this in their calendar.")}</p>
+          <h2>The essentials</h2>
+          <p>Give people a reason to put this in their calendar.</p>
         </div>
         <div className="stack-form">
           <label>
-            {t("Event name")}<input
+            Event name
+            <input
               name="title"
               defaultValue={existing?.title}
-              placeholder={t("Something worth showing up for")}
+              placeholder="Something worth showing up for"
               maxLength={100}
               required
             />
           </label>
           <label>
-            {t("A line for the poster")}{" "}<span className="optional">{t("Optional")}</span>
+            A line for the poster <span className="optional">Optional</span>
             <input
               name="subtitle"
               defaultValue={existing?.subtitle}
-              placeholder={t("One good sentence about your event")}
+              placeholder="One good sentence about your event"
               maxLength={120}
             />
           </label>
           <div className="form-two">
             <label>
-              {t("Category")}<select
+              Category
+              <select
                 name="category"
                 defaultValue={existing?.category ?? "Concerts"}
               >
                 {categories.slice(1).map((c) => (
-                  <option key={c} value={c}>{t(c)}</option>
+                  <option key={c}>{c}</option>
                 ))}
               </select>
             </label>
             <label>
-              {t("City")}<select name="city" defaultValue={existing?.city ?? "Almaty"}>
+              City
+              <select name="city" defaultValue={existing?.city ?? "Almaty"}>
                 {["Almaty", "Astana", "Shymkent"].map((c) => (
-                  <option key={c} value={c}>{t(c)}</option>
+                  <option key={c}>{c}</option>
                 ))}
               </select>
             </label>
           </div>
           <label>
-            {t("About the event")}<textarea
+            About the event
+            <textarea
               name="description"
               defaultValue={existing?.description}
-              placeholder={t("The lineup, the atmosphere, the things people should know…")}
+              placeholder="The lineup, the atmosphere, the things people should know…"
               rows={5}
               required
               maxLength={4000}
@@ -422,13 +433,14 @@ export function EventEditor({
       <section className="editor-section">
         <div className="editor-section-label">
           <span className="step-number">02</span>
-          <h2>{t("A time & a place")}</h2>
-          <p>{t("All times are local to Kazakhstan (UTC+5).")}</p>
+          <h2>A time & a place</h2>
+          <p>All times are local to Kazakhstan (UTC+5).</p>
         </div>
         <div className="stack-form">
           <div className="form-two">
             <label>
-              {t("Date")}<input
+              Date
+              <input
                 type="date"
                 name="date"
                 min={new Date().toLocaleDateString("en-CA", {
@@ -439,7 +451,8 @@ export function EventEditor({
               />
             </label>
             <label>
-              {t("Start time")}<input
+              Start time
+              <input
                 type="time"
                 name="time"
                 defaultValue={existing ? timeLabel(existing.date) : "19:00"}
@@ -448,10 +461,11 @@ export function EventEditor({
             </label>
           </div>
           <label>
-            {t("Venue")}<input
+            Venue
+            <input
               name="venue"
               defaultValue={existing?.venue}
-              placeholder={t("Venue name or street address")}
+              placeholder="Venue name or street address"
               maxLength={150}
               required
             />
@@ -461,27 +475,29 @@ export function EventEditor({
       <section className="editor-section">
         <div className="editor-section-label">
           <span className="step-number">03</span>
-          <h2>{t("A way in")}</h2>
+          <h2>A way in</h2>
           <p>
-            {t("Make it free, or set a price in tenge. Paid sales are enabled separately.")}</p>
+            Make it free, or set a price in tenge. Paid sales are enabled
+            separately.
+          </p>
         </div>
         <div className="ticket-type-editor">
-          {types.map((item, i) => (
-            <div className="ticket-type-form" key={item.id}>
+          {types.map((t, i) => (
+            <div className="ticket-type-form" key={t.id}>
               <div className="ticket-type-heading">
-                <span>{t("Ticket type")}{" "}{String(i + 1).padStart(2, "0")}</span>
+                <span>Ticket type {String(i + 1).padStart(2, "0")}</span>
                 {types.length > 1 && (
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={t("Remove ticket type {name}", { name: item.name })}
+                    aria-label={`Remove ticket type ${t.name}`}
                     disabled={
                       !!existing &&
-                      soldCount(state.orders, existing.id, item.id) > 0
+                      soldCount(state.orders, existing.id, t.id) > 0
                     }
                     onClick={() =>
                       setTypes((items) =>
-                        items.filter((item) => item.id !== item.id),
+                        items.filter((item) => item.id !== t.id),
                       )
                     }
                   >
@@ -490,16 +506,18 @@ export function EventEditor({
                 )}
               </div>
               <label>
-                {t("Ticket name")}<input
-                  value={item.name}
+                Ticket name
+                <input
+                  value={t.name}
                   onChange={(e) => changeType(i, { name: e.target.value })}
                   required
                   maxLength={60}
                 />
               </label>
               <label>
-                {t("What's included")}<input
-                  value={item.description}
+                What&apos;s included
+                <input
+                  value={t.description}
                   onChange={(e) =>
                     changeType(i, { description: e.target.value })
                   }
@@ -508,26 +526,28 @@ export function EventEditor({
               </label>
               <div className="form-two">
                 <label>
-                  {t("Price · KZT")}<input
+                  Price · KZT
+                  <input
                     type="number"
                     min={0}
                     max={10000000}
                     step={1}
-                    value={item.price}
+                    value={t.price}
                     onChange={(e) =>
                       changeType(i, { price: e.target.valueAsNumber || 0 })
                     }
                     required
                   />
-                  <span className="field-hint">{t("0 = free registration")}</span>
+                  <span className="field-hint">0 = free registration</span>
                 </label>
                 <label>
-                  {t("Quantity available")}<input
+                  Quantity available
+                  <input
                     type="number"
                     min={1}
                     max={100000}
                     step={1}
-                    value={item.capacity}
+                    value={t.capacity}
                     onChange={(e) =>
                       changeType(i, { capacity: e.target.valueAsNumber || 0 })
                     }
@@ -554,7 +574,8 @@ export function EventEditor({
             }
           >
             <Icon name="plus" size={16} />
-            {t("Add ticket type")}</button>
+            Add ticket type
+          </button>
         </div>
       </section>
       {error && <Notice error>{error}</Notice>}
@@ -562,11 +583,11 @@ export function EventEditor({
       <div className="editor-footer">
         <p>
           {existing
-            ? t("Existing orders keep their original ticket price.")
-            : t("Your event starts as a draft. Publish it when you’re ready.")}
+            ? "Existing orders keep their original ticket price."
+            : "Your event starts as a draft. Publish it when you’re ready."}
         </p>
         <button className="btn btn-primary" type="submit">
-          {existing ? t("Save changes") : t("Create draft")}
+          {existing ? "Save changes" : "Create draft"}
           <Icon name="arrow" size={16} />
         </button>
       </div>
@@ -575,7 +596,6 @@ export function EventEditor({
 }
 
 export function NewEventPage() {
-  const { t } = useI18n();
   const { ready, user } = useDemo();
   if (!ready) return <LoadingPage />;
   if (user?.role !== "organizer") return <Gate organizer />;
@@ -583,11 +603,12 @@ export function NewEventPage() {
     <OrganizerShell active="events">
       <Link className="text-link muted back-link" href="/organizer">
         <Icon name="back" size={15} />
-        {t("Your events")}</Link>
+        Your events
+      </Link>
       <PageIntro
-        eyebrow={t("From an idea to a full room")}
-        title={t("Let’s put it on the calendar.")}
-        description={t("Start with the essentials. The rest can take shape as you go.")}
+        eyebrow="From an idea to a full room"
+        title="Let’s put it on the calendar."
+        description="Start with the essentials. The rest can take shape as you go."
       />
       <EventEditor />
     </OrganizerShell>
@@ -595,7 +616,6 @@ export function NewEventPage() {
 }
 
 export function ManageEventPage({ id }: { id: string }) {
-  const { t, locale } = useI18n();
   const { ready, state, user, update } = useDemo();
   const [tab, setTab] = useState("Overview");
   const [message, setMessage] = useState("");
@@ -607,17 +627,17 @@ export function ManageEventPage({ id }: { id: string }) {
     return (
       <OrganizerShell>
         <EmptyState
-          title={t("This isn’t one of your events.")}
-          description={t("Your workspace contains the events created by your profile.")}
+          title="This isn’t one of your events."
+          description="Your workspace contains the events created by your profile."
           href="/organizer"
-          label={t("Back to your events")}
+          label="Back to your events"
         />
       </OrganizerShell>
     );
   const orders = state.orders.filter((o) => o.eventId === id);
   const confirmed = orders.filter((o) => o.status === "confirmed");
   const booked = soldCount(state.orders, id);
-  const capacity = event.tickets.reduce((s, item) => s + item.capacity, 0);
+  const capacity = event.tickets.reduce((s, t) => s + t.capacity, 0);
   const revenue = confirmed.reduce((s, o) => s + o.total, 0);
   const checked = confirmed
     .flatMap((o) => o.lines.flatMap((l) => l.admissions))
@@ -631,34 +651,35 @@ export function ManageEventPage({ id }: { id: string }) {
       });
       setMessage(success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Could not save this change."));
+      setError(e instanceof Error ? e.message : "Could not save this change.");
     }
   }
   return (
     <OrganizerShell active="events">
       <Link className="text-link muted back-link" href="/organizer?view=events">
         <Icon name="back" size={15} />
-        {t("Your events")}</Link>
+        Your events
+      </Link>
       <div className="manage-title">
         <span
           className={`status-badge ${event.status === "published" ? "status-live" : ""}`}
         >
-          {event.status === "published" ? t("Published") : t("Draft")}
+          {event.status === "published" ? "Published" : "Draft"}
         </span>
         <span>
-          {dateLabel(event.date, { weekday: "short" }, localeCodes[locale])} ·{" "}
-          {timeLabel(event.date, localeCodes[locale])} · {event.city}
+          {dateLabel(event.date, { weekday: "short" })} ·{" "}
+          {timeLabel(event.date)} · {event.city}
         </span>
       </div>
-      <SupportLink eventId={event.id} label={t("Get platform support for this event")} />
+      <SupportLink eventId={event.id} label="Get platform support for this event" />
       <PageIntro
-        eyebrow={t("Your event")}
+        eyebrow="Your event"
         title={event.title}
         action={
           <div className="button-row">
             {event.status === "published" && (
               <Link className="btn btn-secondary" href={`/events/${id}`}>
-                {t("View event")}{" "}<Icon name="external" size={14} />
+                View event <Icon name="external" size={14} />
               </Link>
             )}
             <button
@@ -667,31 +688,31 @@ export function ManageEventPage({ id }: { id: string }) {
                 patch(
                   { status: event.status === "draft" ? "published" : "draft" },
                   event.status === "draft"
-                    ? t("Your event is now on the public event list.")
-                    : t("Event unpublished. Existing orders are kept."),
+                    ? "Your event is now on the public event list."
+                    : "Event unpublished. Existing orders are kept.",
                 )
               }
             >
-              {event.status === "draft" ? t("Publish event") : t("Unpublish")}
+              {event.status === "draft" ? "Publish event" : "Unpublish"}
             </button>
           </div>
         }
       />
       <div className="line-tabs manage-tabs">
         {["Overview", "Tickets", "Attendees", "Sales", "Team", "Details"].map(
-          (item) => (
+          (t) => (
             <button
-              aria-pressed={tab === item}
-              className={tab === item ? "active" : ""}
-              key={item}
+              aria-pressed={tab === t}
+              className={tab === t ? "active" : ""}
+              key={t}
               onClick={() => {
-                setTab(item);
+                setTab(t);
                 setMessage("");
                 setError("");
               }}
             >
-              {t(item)}
-              {item === "Attendees" && <span>{booked}</span>}
+              {t}
+              {t === "Attendees" && <span>{booked}</span>}
             </button>
           ),
         )}
@@ -702,21 +723,21 @@ export function ManageEventPage({ id }: { id: string }) {
         <>
           <div className="stats-row">
             <Stat
-              label={t("Demo sales")}
+              label="Demo sales"
               value={amount(revenue)}
-              note={t("Confirmed orders only")}
+              note="Confirmed orders only"
               icon="chart"
             />
             <Stat
-              label={t("Tickets booked")}
+              label="Tickets booked"
               value={`${booked} / ${capacity}`}
-              note={t("Available: {count}", { count: Math.max(0, capacity - booked) })}
+              note={`${Math.max(0, capacity - booked)} still available`}
               icon="ticket"
             />
             <Stat
-              label={t("Through the door")}
+              label="Through the door"
               value={checked}
-              note={t("Guests remaining: {count}", { count: Math.max(0, booked - checked) })}
+              note={`${Math.max(0, booked - checked)} guests to welcome`}
               icon="users"
             />
           </div>
@@ -728,8 +749,8 @@ export function ManageEventPage({ id }: { id: string }) {
               </p>
             </div>
             <div className="launch-checklist">
-              <h2>{t("Before the doors open")}</h2>
-              <p className="muted">{t("A few things to have in place.")}</p>
+              <h2>Before the doors open</h2>
+              <p className="muted">A few things to have in place.</p>
               {[
                 [
                   "The event details",
@@ -738,7 +759,7 @@ export function ManageEventPage({ id }: { id: string }) {
                 ],
                 [
                   "Your ticket types",
-                  t("Ticket types available: {count}", { count: event.tickets.length }),
+                  `${event.tickets.length} ${event.tickets.length === 1 ? "way" : "ways"} to join the night.`,
                   event.tickets.length > 0,
                 ],
                 [
@@ -761,8 +782,8 @@ export function ManageEventPage({ id }: { id: string }) {
                     )}
                   </span>
                   <div>
-                    <strong>{t(String(title))}</strong>
-                    <p>{t(String(description))}</p>
+                    <strong>{title}</strong>
+                    <p>{description}</p>
                   </div>
                 </div>
               ))}
@@ -774,25 +795,25 @@ export function ManageEventPage({ id }: { id: string }) {
         <>
           <div className="sales-switch">
             <div>
-              <span className="eyebrow">{t("Box office")}</span>
-              <h2>{t("Paid ticket sales")}</h2>
+              <span className="eyebrow">Box office</span>
+              <h2>Paid ticket sales</h2>
               <p>
                 {event.paidSales
-                  ? t("Paid tickets can be booked through demo checkout.")
-                  : t("Paid tickets are paused. Free registration remains available.")}
+                  ? "Paid tickets can be booked through demo checkout."
+                  : "Paid tickets are paused. Free registration remains available."}
               </p>
             </div>
             <button
               className={`toggle ${event.paidSales ? "on" : ""}`}
               role="switch"
               aria-checked={event.paidSales}
-              aria-label={t("Enable paid demo sales")}
+              aria-label="Enable paid demo sales"
               onClick={() =>
                 patch(
                   { paidSales: !event.paidSales },
                   event.paidSales
-                    ? t("Paid ticket sales paused.")
-                    : t("Paid demo sales enabled. No payments will be collected."),
+                    ? "Paid ticket sales paused."
+                    : "Paid demo sales enabled. No payments will be collected.",
                 )
               }
             >
@@ -800,16 +821,17 @@ export function ManageEventPage({ id }: { id: string }) {
             </button>
           </div>
           <div className="ticket-types-list">
-            {event.tickets.map((item) => (
-              <div className="ticket-type-row" key={item.id}>
+            {event.tickets.map((t) => (
+              <div className="ticket-type-row" key={t.id}>
                 <Icon name="ticket" size={24} />
                 <div>
-                  <h3>{item.name}</h3>
-                  <p>{item.description}</p>
+                  <h3>{t.name}</h3>
+                  <p>{t.description}</p>
                 </div>
-                <strong>{t(money(item.price, localeCodes[locale]))}</strong>
+                <strong>{money(t.price)}</strong>
                 <span>
-                  {soldCount(state.orders, id, item.id)} / {item.capacity} {t("booked")}</span>
+                  {soldCount(state.orders, id, t.id)} / {t.capacity} booked
+                </span>
               </div>
             ))}
           </div>
@@ -818,9 +840,12 @@ export function ManageEventPage({ id }: { id: string }) {
             onClick={() => setTab("Details")}
           >
             <Icon name="plus" size={16} />
-            {t("Edit ticket types & capacity")}</button>
+            Edit ticket types & capacity
+          </button>
           <p className="order-note">
-            {t("Prices are shown for demonstration. Payment provider integration is not enabled.")}</p>
+            Prices are shown for demonstration. Payment provider integration is
+            not enabled.
+          </p>
         </>
       )}
       {tab === "Attendees" && <AttendeeList event={event} orders={orders} />}
@@ -840,7 +865,6 @@ function AttendeeList({
   orders: Order[];
   staffOnly?: boolean;
 }) {
-  const { t, locale } = useI18n();
   const { update } = useDemo();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -868,9 +892,9 @@ function AttendeeList({
     setMessage("");
     try {
       update((s) => checkIn(s, event.id, id));
-      setMessage(t("Ticket checked in. Welcome to the night."));
+      setMessage("Ticket checked in. Welcome to the night.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Unable to check in."));
+      setError(e instanceof Error ? e.message : "Unable to check in.");
     }
   }
   function cancel(id: string) {
@@ -899,39 +923,41 @@ function AttendeeList({
         };
       });
       setCancelId(null);
-      setMessage(t("Demo order cancelled. Its tickets are available again."));
+      setMessage("Demo order cancelled. Its tickets are available again.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Could not cancel the order."));
+      setError(e instanceof Error ? e.message : "Could not cancel the order.");
     }
   }
   return (
     <section>
       <div className="section-heading">
         <div>
-          <h2>{staffOnly ? t("At the door") : t("The guest list")}</h2>
+          <h2>{staffOnly ? "At the door" : "The guest list"}</h2>
           <p className="muted">
-            {t("One ticket, one check-in. Search by name, email, or ticket reference.")}</p>
+            One ticket, one check-in. Search by name, email, or ticket
+            reference.
+          </p>
         </div>
       </div>
       <div className="attendee-filters">
         <label className="search-input">
           <Icon name="search" size={17} />
           <input
-            aria-label={t("Search attendees")}
+            aria-label="Search attendees"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("Name, email, or ticket reference")}
+            placeholder="Name, email, or ticket reference"
           />
         </label>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          aria-label={t("Attendee status")}
+          aria-label="Attendee status"
         >
-          <option value="all">{t("All attendees")}</option>
-          <option value="waiting">{t("Not checked in")}</option>
-          <option value="checked">{t("Checked in")}</option>
-          {!staffOnly && <option value="cancelled">{t("Cancelled")}</option>}
+          <option value="all">All attendees</option>
+          <option value="waiting">Not checked in</option>
+          <option value="checked">Checked in</option>
+          {!staffOnly && <option value="cancelled">Cancelled</option>}
         </select>
       </div>
       {error && <Notice error>{error}</Notice>}
@@ -953,11 +979,11 @@ function AttendeeList({
                   <p>{order.email}</p>
                   <code>{order.id.slice(0, 20)}</code>
                 </div>
-                {!staffOnly && <strong>{t(money(order.total, localeCodes[locale]))}</strong>}
+                {!staffOnly && <strong>{money(order.total)}</strong>}
               </div>
               <div className="attendee-tickets">
                 {order.status === "cancelled" ? (
-                  <span className="status-badge">{t("Cancelled")}</span>
+                  <span className="status-badge">Cancelled</span>
                 ) : (
                   order.lines.flatMap((line) =>
                     line.admissions.map((a, i) => (
@@ -975,7 +1001,7 @@ function AttendeeList({
                             name={a.checkedIn ? "check" : "ticket"}
                             size={14}
                           />
-                          {a.checkedIn ? t("Checked in") : t("Check in")}
+                          {a.checkedIn ? "Checked in" : "Check in"}
                         </button>
                       </div>
                     )),
@@ -990,24 +1016,27 @@ function AttendeeList({
                   <div className="cancel-order">
                     {cancelId === order.id ? (
                       <>
-                        <span>{t("Cancel this order and release its tickets?")}</span>
+                        <span>Cancel this order and release its tickets?</span>
                         <button
                           onClick={() => cancel(order.id)}
                           className="text-button danger"
                         >
-                          {t("Yes, cancel order")}</button>
+                          Yes, cancel order
+                        </button>
                         <button
                           onClick={() => setCancelId(null)}
                           className="text-button"
                         >
-                          {t("Keep order")}</button>
+                          Keep order
+                        </button>
                       </>
                     ) : (
                       <button
                         className="text-button muted"
                         onClick={() => setCancelId(order.id)}
                       >
-                        {t("Cancel demo order")}</button>
+                        Cancel demo order
+                      </button>
                     )}
                   </div>
                 )}
@@ -1019,13 +1048,13 @@ function AttendeeList({
           icon="users"
           title={
             orders.length
-              ? t("No guests match this search.")
-              : t("A guest list waiting to happen.")
+              ? "No guests match this search."
+              : "A guest list waiting to happen."
           }
           description={
             orders.length
-              ? t("Try a different name or check-in status.")
-              : t("New bookings will appear here, ready for a warm welcome.")
+              ? "Try a different name or check-in status."
+              : "New bookings will appear here, ready for a warm welcome."
           }
         />
       )}
@@ -1034,61 +1063,60 @@ function AttendeeList({
 }
 
 function SalesView({ event, orders }: { event: Event; orders: Order[] }) {
-  const { t, locale } = useI18n();
   const total = orders.reduce((s, o) => s + o.total, 0);
   const sold = soldCount(orders, event.id);
   return (
     <section>
       <div className="stats-row">
         <Stat
-          label={t("Gross demo sales")}
+          label="Gross demo sales"
           value={amount(total)}
-          note={t("No real money collected")}
+          note="No real money collected"
           icon="chart"
         />
         <Stat
-          label={t("Confirmed orders")}
+          label="Confirmed orders"
           value={orders.length}
-          note={t("Total tickets: {count}", { count: sold })}
+          note={`${sold} tickets in total`}
           icon="ticket"
         />
         <Stat
-          label={t("Average order")}
+          label="Average order"
           value={amount(orders.length ? Math.round(total / orders.length) : 0)}
-          note={t("Based on confirmed orders")}
+          note="Based on confirmed orders"
           icon="users"
         />
       </div>
       <div className="section-heading">
-        <h2>{t("By ticket type")}</h2>
-        <span className="muted">{t("All time")}</span>
+        <h2>By ticket type</h2>
+        <span className="muted">All time</span>
       </div>
       <div className="table-scroll">
         <table className="sales-table">
           <thead>
             <tr>
-              <th>{t("Ticket type")}</th>
-              <th>{t("Booked")}</th>
-              <th>{t("Available")}</th>
-              <th>{t("Demo sales")}</th>
+              <th>Ticket type</th>
+              <th>Booked</th>
+              <th>Available</th>
+              <th>Demo sales</th>
             </tr>
           </thead>
           <tbody>
-            {event.tickets.map((item) => {
+            {event.tickets.map((t) => {
               const lines = orders.flatMap((o) =>
-                o.lines.filter((l) => l.ticketId === item.id),
+                o.lines.filter((l) => l.ticketId === t.id),
               );
               const count = lines.reduce((s, l) => s + l.quantity, 0);
               return (
-                <tr key={item.id}>
+                <tr key={t.id}>
                   <td>
-                    <strong>{item.name}</strong>
-                    <small>{t(money(item.price, localeCodes[locale]))} {t("per ticket now")}</small>
+                    <strong>{t.name}</strong>
+                    <small>{money(t.price)} per ticket now</small>
                   </td>
                   <td>{count}</td>
-                  <td>{item.capacity - count}</td>
+                  <td>{t.capacity - count}</td>
                   <td>
-                    {amount(lines.reduce((s, l) => s + l.price * l.quantity, 0), localeCodes[locale])}
+                    {amount(lines.reduce((s, l) => s + l.price * l.quantity, 0))}
                   </td>
                 </tr>
               );
@@ -1097,7 +1125,7 @@ function SalesView({ event, orders }: { event: Event; orders: Order[] }) {
         </table>
       </div>
       <div className="section-heading recent-orders-heading">
-        <h2>{t("Recent orders")}</h2>
+        <h2>Recent orders</h2>
       </div>
       {orders.length ? (
         <div className="sales-orders">
@@ -1106,24 +1134,26 @@ function SalesView({ event, orders }: { event: Event; orders: Order[] }) {
               <div>
                 <strong>{o.name}</strong>
                 <small>
-                  {dateLabel(o.createdAt, { year: "numeric" }, localeCodes[locale])} ·{" "}
-                  {o.lines.reduce((s, l) => s + l.quantity, 0)} {t("tickets")}</small>
+                  {dateLabel(o.createdAt, { year: "numeric" })} ·{" "}
+                  {o.lines.reduce((s, l) => s + l.quantity, 0)} tickets
+                </small>
               </div>
-              <span className="status-badge status-live">{t("Confirmed")}</span>
-              <strong>{t(money(o.total, localeCodes[locale]))}</strong>
+              <span className="status-badge status-live">Confirmed</span>
+              <strong>{money(o.total)}</strong>
             </div>
           ))}
         </div>
       ) : (
         <p className="muted">
-          {t("No sales yet. Publish the event and enable sales when you're ready.")}</p>
+          No sales yet. Publish the event and enable sales when you&apos;re
+          ready.
+        </p>
       )}
     </section>
   );
 }
 
 function TeamEditor({ event }: { event: Event }) {
-  const { t } = useI18n();
   const { update } = useDemo();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -1134,7 +1164,7 @@ function TeamEditor({ event }: { event: Event }) {
     const data = new FormData(form);
     const name = String(data.get("name")).trim();
     const email = String(data.get("email")).trim().toLowerCase();
-    if (!name) return setError(t("Add a name for your team member."));
+    if (!name) return setError("Add a name for your team member.");
     try {
       update((s) => {
         const current = s.events.find((e) => e.id === event.id)!;
@@ -1147,10 +1177,10 @@ function TeamEditor({ event }: { event: Event }) {
       });
       form.reset();
       setMessage(
-        t("Team member assigned. They can use the check-in desk with a matching demo profile."),
+        "Team member assigned. They can use the check-in desk with a matching demo profile.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Could not add team member."));
+      setError(e instanceof Error ? e.message : "Could not add team member.");
     }
   }
   function remove(id: string) {
@@ -1163,10 +1193,10 @@ function TeamEditor({ event }: { event: Event }) {
           staff: current.staff.filter((m) => m.id !== id),
         });
       });
-      setMessage(t("Check-in access removed."));
+      setMessage("Check-in access removed.");
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : t("Could not remove team member."),
+        e instanceof Error ? e.message : "Could not remove team member.",
       );
     }
   }
@@ -1174,9 +1204,11 @@ function TeamEditor({ event }: { event: Event }) {
     <section>
       <div className="section-heading">
         <div>
-          <h2>{t("Good people at the door.")}</h2>
+          <h2>Good people at the door.</h2>
           <p className="muted">
-            {t("Assign check-in access to a demo profile by email. No invitation email is sent.")}</p>
+            Assign check-in access to a demo profile by email. No invitation
+            email is sent.
+          </p>
         </div>
       </div>
       <div className="team-layout">
@@ -1188,11 +1220,11 @@ function TeamEditor({ event }: { event: Event }) {
                 <div>
                   <strong>{member.name}</strong>
                   <p>{member.email}</p>
-                  <small>{t("Check-in access only")}</small>
+                  <small>Check-in access only</small>
                 </div>
                 <button
                   className="icon-button"
-                  aria-label={t("Remove {name}", { name: member.name })}
+                  aria-label={`Remove ${member.name}`}
                   onClick={() => remove(member.id)}
                 >
                   <Icon name="close" size={16} />
@@ -1202,35 +1234,40 @@ function TeamEditor({ event }: { event: Event }) {
           ) : (
             <EmptyState
               icon="users"
-              title={t("Who’s on the door?")}
-              description={t("Add the people who will be welcoming your guests.")}
+              title="Who’s on the door?"
+              description="Add the people who will be welcoming your guests."
             />
           )}
         </div>
         <form onSubmit={add} className="stack-form team-add">
-          <h3>{t("Add a team member")}</h3>
+          <h3>Add a team member</h3>
           <label>
-            {t("Name")}<input
+            Name
+            <input
               name="name"
               required
               maxLength={80}
-              placeholder={t("First and last name")}
+              placeholder="First and last name"
             />
           </label>
           <label>
-            {t("Email")}<input
+            Email
+            <input
               name="email"
               type="email"
               required
               maxLength={200}
-              placeholder={t("teammate@example.com")}
+              placeholder="teammate@example.com"
             />
           </label>
           <button className="btn btn-primary" type="submit">
             <Icon name="plus" size={16} />
-            {t("Assign check-in access")}</button>
+            Assign check-in access
+          </button>
           <p className="field-hint">
-            {t("Team members can check tickets for this event. Event settings and sales stay with you.")}</p>
+            Team members can check tickets for this event. Event settings and
+            sales stay with you.
+          </p>
         </form>
       </div>
       {error && <Notice error>{error}</Notice>}
@@ -1240,7 +1277,6 @@ function TeamEditor({ event }: { event: Event }) {
 }
 
 export function CheckInPage() {
-  const { t, locale } = useI18n();
   const { ready, state, user } = useDemo();
   const [selected, setSelected] = useState("");
   if (!ready) return <LoadingPage />;
@@ -1250,20 +1286,21 @@ export function CheckInPage() {
   const body = (
     <>
       <PageIntro
-        eyebrow={t("First impressions count")}
-        title={t("Welcome them in.")}
-        description={t("Your door team’s list. Find a ticket and mark its arrival.")}
+        eyebrow="First impressions count"
+        title="Welcome them in."
+        description="Your door team’s list. Find a ticket and mark its arrival."
       />
       {event ? (
         <>
           <label className="checkin-event-select">
-            {t("Event")}<select
+            Event
+            <select
               value={event.id}
               onChange={(e) => setSelected(e.target.value)}
             >
               {events.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.title} · {dateLabel(e.date, undefined, localeCodes[locale])}
+                  {e.title} · {dateLabel(e.date)}
                 </option>
               ))}
             </select>
@@ -1278,10 +1315,10 @@ export function CheckInPage() {
       ) : (
         <EmptyState
           icon="users"
-          title={t("No door assignment yet.")}
-          description={t("Your organizer needs to add your profile’s email to the event team. Assigned events will appear here.")}
+          title="No door assignment yet."
+          description="Your organizer needs to add your profile’s email to the event team. Assigned events will appear here."
           href="/events"
-          label={t("Browse events")}
+          label="Browse events"
         />
       )}
     </>

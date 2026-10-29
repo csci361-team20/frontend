@@ -1,9 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { dateLabel, type Event } from "@/lib/demo-data";
-import { useI18n, localeCodes } from "@/lib/i18n";
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
@@ -97,9 +94,8 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   );
 }
 export function Brand() {
-  const { t } = useI18n();
   return (
-    <Link href="/" className="brand" aria-label={t("BiletFlow home")}>
+    <Link href="/" className="brand" aria-label="BiletFlow home">
       <span className="brand-mark">
         <Icon name="ticket" />
       </span>
@@ -166,42 +162,47 @@ export function Poster({
   event: Event;
   compact?: boolean;
 }) {
-  const { t, locale } = useI18n();
   const words: Record<string, ReactNode> = {
     concert: (
       <>
-        {"STEPPE"}<br />
-        <i>{"SOUND"}</i>
+        STEPPE
+        <br />
+        <i>SOUND</i>
       </>
     ),
     cine: (
       <>
-        {"THE LONG"}<br />
-        <i>{"AFTERNOON"}</i>
+        THE LONG
+        <br />
+        <i>AFTERNOON</i>
       </>
     ),
     theatre: (
       <>
-        {"ABAI"}<br />
-        <i>{"in three acts"}</i>
+        ABAI
+        <br />
+        <i>in three acts</i>
       </>
     ),
     fest: (
       <>
-        {"DESHT"}<br />
-        <i>{"electronic"}</i>
+        DESHT
+        <br />
+        <i>electronic</i>
       </>
     ),
     comedy: (
       <>
-        {"THE"}<br />
-        <i>{"LATE LIST"}</i>
+        THE
+        <br />
+        <i>LATE LIST</i>
       </>
     ),
     sport: (
       <>
-        {"TIGERS"}<br />
-        <i>{"× FALCONS"}</i>
+        TIGERS
+        <br />
+        <i>× FALCONS</i>
       </>
     ),
   };
@@ -211,8 +212,8 @@ export function Poster({
       aria-hidden="true"
     >
       <div className="poster-top">
-        <span>{t("BILETFLOW / LIVE CULTURE")}</span>
-        <span>{dateLabel(event.date, undefined, localeCodes[locale])}</span>
+        <span>BILETFLOW / LIVE CULTURE</span>
+        <span>{dateLabel(event.date)}</span>
       </div>
       <div className="poster-art">
         <span />
@@ -250,33 +251,31 @@ export function Notice({
   );
 }
 export function LoadingPage() {
-  const { t } = useI18n();
   return (
     <div className="workspace loading-page" aria-busy="true">
-      <span className="eyebrow">{t("Just a moment")}</span>
+      <span className="eyebrow">Just a moment</span>
       <div className="skeleton skeleton-title" />
       <div className="skeleton skeleton-panel" />
     </div>
   );
 }
 export function Gate({ organizer = false }: { organizer?: boolean }) {
-  const { t } = useI18n();
   return (
     <div className="workspace">
       <EmptyState
         icon={organizer ? "grid" : "ticket"}
         title={
           organizer
-            ? t("Your box office starts here.")
-            : t("Keep your nights in one place.")
+            ? "Your box office starts here."
+            : "Keep your nights in one place."
         }
         description={
           organizer
-            ? t("Sign in with an organizer profile to create events and manage your guest list.")
-            : t("Sign in to see your orders, book an event, and download your tickets.")
+            ? "Sign in with an organizer profile to create events and manage your guest list."
+            : "Sign in to see your orders, book an event, and download your tickets."
         }
         href={organizer ? "/sign-in?role=organizer" : "/sign-in"}
-        label={t("Sign in")}
+        label="Sign in"
       />
     </div>
   );

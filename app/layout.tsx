@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
-import { LocaleProvider, LocalizedSkipLink } from "@/lib/i18n";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,6 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Characterful display serif — the "human handwriting" of the brand.
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
@@ -23,7 +23,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "BiletFlow — tickets for the nights worth remembering",
   description:
-    "Discover public events in Kazakhstan and manage organizer profiles, events and ticket types with BiletFlow.",
+    "Cinema, concerts, theatre and everything worth leaving the house for. Real seats, on your phone, in under a minute. Almaty & Astana.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -33,13 +33,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-ink text-cream">
-        <LocaleProvider>
-        <LocalizedSkipLink />
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
         <SiteHeader />
-        <div id="main-content" className="app-content" tabIndex={-1}>
+        <div id="main-content" className="app-content">
           {children}
         </div>
-        </LocaleProvider>
       </body>
     </html>
   );

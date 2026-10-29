@@ -5,10 +5,8 @@ import { useDemo } from "./demo-provider";
 import { Brand, Icon } from "./primitives";
 import { canCheckIn } from "@/lib/demo-data";
 import { canViewCase } from "@/lib/operations";
-import { LanguageSwitcher, useI18n } from "@/lib/i18n";
 
 export function SiteHeader() {
-  const { t } = useI18n();
   const { user, state, update, storageError } = useDemo();
   const pathname = usePathname();
   const router = useRouter();
@@ -16,31 +14,32 @@ export function SiteHeader() {
   return (
     <>
       <header className="site-header">
-        <nav className="site-nav" aria-label={t("Main navigation")}>
+        <nav className="site-nav" aria-label="Main navigation">
           <Brand />
           <div className="nav-links">
             <Link
               className={pathname.startsWith("/events") ? "active" : ""}
               href="/events"
             >
-              {t("What's on")}</Link>
+              What&apos;s on
+            </Link>
             <Link
               className={pathname.startsWith("/orders") ? "active" : ""}
               href="/orders"
             >
-              {t("My tickets")}</Link>
+              My tickets
+            </Link>
             <Link
-              className={pathname.startsWith(user?.role === "platform_admin" ? "/admin" : "/workspace") ? "active" : ""}
-              href={user?.role === "platform_admin" ? "/admin" : "/workspace"}
+              className={pathname.startsWith(user?.role === "platform_admin" ? "/admin" : "/organizer") ? "active" : ""}
+              href={user?.role === "platform_admin" ? "/admin" : "/organizer"}
             >
-              {user?.role === "platform_admin" ? t("Administration") : t("For organizers")} <Icon name="external" size={12} />
+              {user?.role === "platform_admin" ? "Administration" : "For organizers"} <Icon name="external" size={12} />
             </Link>
             <Link className={pathname.startsWith("/support") ? "active" : ""} href="/support">
-              {t("Support")}{" "}{unread > 0 && <span className="notification-count" aria-label={t("{count} unread notifications", { count: unread })}>{unread}</span>}
+              Support {unread > 0 && <span className="notification-count" aria-label={`${unread} unread notifications`}>{unread}</span>}
             </Link>
           </div>
           <div className="nav-account">
-            <LanguageSwitcher />
             {user ? (
               <details className="account-menu">
                 <summary>
@@ -59,22 +58,20 @@ export function SiteHeader() {
                 <div className="account-dropdown">
                   <p>
                     {user.name}
-                    <small>{t(user.role)} {t("· demo profile")}</small>
+                    <small>{user.role.replaceAll("_", " ")} · demo profile</small>
                   </p>
                   <Link
                     href="/profile"
                     onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}
                   >
-                    {t("Profile")}</Link>
-                  <Link href="/workspace" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
-                    {t("Connected organizer workspace")}</Link>
-                  <Link href="/events?source=demo" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
-                    {t("Demo events")}</Link>
+                    Profile
+                  </Link>
                   <Link href="/support" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
-                    {t("Support cases")}{" "}{unread > 0 ? `(${t("{count} unread notifications", { count: unread })})` : ""}
+                    Support cases {unread > 0 ? `(${unread} unread)` : ""}
                   </Link>
                   {user.role === "platform_admin" && <Link href="/admin" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
-                    {t("Platform administration")}</Link>}
+                    Platform administration
+                  </Link>}
                   <Link
                     href="/orders"
                     onClick={(e) =>
@@ -83,7 +80,8 @@ export function SiteHeader() {
                         ?.removeAttribute("open")
                     }
                   >
-                    {t("My tickets & orders")}</Link>
+                    My tickets & orders
+                  </Link>
                   {user.role === "organizer" && (
                     <Link
                       href="/organizer"
@@ -93,7 +91,8 @@ export function SiteHeader() {
                           ?.removeAttribute("open")
                       }
                     >
-                      {t("Demo organizer workspace")}</Link>
+                      Organizer workspace
+                    </Link>
                   )}
                   {state.events.some((e) => canCheckIn(user, e, state)) && (
                     <Link
@@ -104,7 +103,8 @@ export function SiteHeader() {
                           ?.removeAttribute("open")
                       }
                     >
-                      {t("Check-in desk")}</Link>
+                      Check-in desk
+                    </Link>
                   )}
                   <Link
                     href="/sign-in"
@@ -114,7 +114,8 @@ export function SiteHeader() {
                         ?.removeAttribute("open")
                     }
                   >
-                    {t("Switch demo profile")}</Link>
+                    Switch demo profile
+                  </Link>
                   <button
                     onClick={(e) => {
                       e.currentTarget
@@ -124,12 +125,13 @@ export function SiteHeader() {
                       router.push("/");
                     }}
                   >
-                    {t("Leave demo profile")}</button>
+                    Leave demo profile
+                  </button>
                 </div>
               </details>
             ) : (
               <Link className="btn btn-small btn-light" href="/sign-in">
-                {t("Sign in / demo")}{" "}<Icon name="arrow" size={15} />
+                Sign in / demo <Icon name="arrow" size={15} />
               </Link>
             )}
           </div>
@@ -140,8 +142,8 @@ export function SiteHeader() {
           {storageError}
         </div>
       )}
-      {user?.suspended && <div className="storage-warning" role="status">{t("This demo profile is suspended. Booking and organizer access are paused.")}{" "}<Link href="/support/new?category=account">{t("Contact support")}</Link></div>}
-      {!state.operations.settings.bookingsEnabled && <div className="storage-warning" role="status">{t("Bookings are temporarily paused.")}{" "}<Link href="/support">{t("Contact support")}</Link> {t("for an existing order.")}</div>}
+      {user?.suspended && <div className="storage-warning" role="status">This demo profile is suspended. Booking and organizer access are paused. <Link href="/support/new?category=account">Contact support</Link></div>}
+      {!state.operations.settings.bookingsEnabled && <div className="storage-warning" role="status">Bookings are temporarily paused. <Link href="/support">Contact support</Link> for an existing order.</div>}
     </>
   );
 }

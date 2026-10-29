@@ -12,13 +12,13 @@ import {
   placeOrder,
   isEventVisible,
   timeLabel,
+  type Admission,
   type Event,
+  type Order,
 } from "@/lib/demo-data";
 import { useDemo } from "./demo-provider";
 import { SupportLink } from "./support-pages";
 import { EventReportForm } from "./event-report-form";
-import { BackendCatalog } from "./backend-catalog";
-import { CalendarActions, TicketExportActions } from "./event-utilities";
 import {
   EmptyState,
   Gate,
@@ -28,10 +28,25 @@ import {
   PageIntro,
   Poster,
 } from "./primitives";
-import { useI18n, localeCodes } from "@/lib/i18n";
 
 export function LandingEvents() {
-  return <BackendCatalog compact />;
+  const { state } = useDemo();
+  const [now] = useState(Date.now);
+  const events = state.events
+    .filter((e) => isEventVisible(state, e) && new Date(e.date).getTime() > now)
+    .slice(0, 6);
+  return events.length ? (
+    <div className="event-grid">
+      {events.map((event) => (
+        <EventCard key={event.id} event={event} />
+      ))}
+    </div>
+  ) : (
+    <EmptyState
+      title="The next good night is taking shape."
+      description="New events will appear here as soon as their organizers publish them."
+    />
+  );
 }
 
 export function BrowsePage({
@@ -45,7 +60,6 @@ export function BrowsePage({
   city?: string;
   when?: string;
 }) {
-  const { t, locale } = useI18n();
   const { state } = useDemo();
   const [search, setSearch] = useState(query);
   const [selected, setSelected] = useState(
@@ -61,7 +75,7 @@ export function BrowsePage({
         day: undefined,
         month: undefined,
         weekday: "short",
-      }, localeCodes[locale]);
+      });
       return (
         isEventVisible(state, e) &&
         new Date(e.date).getTime() > now &&
@@ -75,8 +89,8 @@ export function BrowsePage({
     })
     .sort((a, b) =>
       sort === "price"
-        ? Math.min(...a.tickets.map((item) => item.price)) -
-          Math.min(...b.tickets.map((item) => item.price))
+        ? Math.min(...a.tickets.map((t) => t.price)) -
+          Math.min(...b.tickets.map((t) => t.price))
         : a.date.localeCompare(b.date),
     );
   function reset() {
@@ -87,50 +101,49 @@ export function BrowsePage({
   }
   return (
     <main className="workspace browse-page">
-      <Notice>{t("These events use browser demo data.")}{" "}<Link href="/events">{t("Browse connected events")}</Link>.</Notice>
       <PageIntro
-        eyebrow={t("Out of the ordinary. Into the city.")}
-        title={t("Make a night of it.")}
-        description={t("Big stages, small rooms, and everything worth showing up for.")}
+        eyebrow="Out of the ordinary. Into the city."
+        title="Make a night of it."
+        description="Big stages, small rooms, and everything worth showing up for."
         action={
           <span className="season-note">
-            {t("The autumn edit")}{" "}<span>— 2026</span>
+            The autumn edit <span>— 2026</span>
           </span>
         }
       />
       <div className="browse-search">
         <label className="search-input">
           <Icon name="search" />
-          <span className="sr-only">{t("Search events, artists or venues")}</span>
+          <span className="sr-only">Search events, artists or venues</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("An artist, a venue, a good idea…")}
+            placeholder="An artist, a venue, a good idea…"
           />
         </label>
         <label>
           <Icon name="pin" size={17} />
-          <span className="sr-only">{t("City")}</span>
+          <span className="sr-only">City</span>
           <select
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           >
             {["All cities", "Almaty", "Astana", "Shymkent"].map((c) => (
-              <option key={c} value={c}>{t(c)}</option>
+              <option key={c}>{c}</option>
             ))}
           </select>
         </label>
         <label>
           <Icon name="calendar" size={17} />
-          <span className="sr-only">{t("When")}</span>
+          <span className="sr-only">When</span>
           <select value={date} onChange={(e) => setDate(e.target.value)}>
-            <option value="any">{t("Any date")}</option>
-            <option value="weekend">{t("Weekends")}</option>
+            <option value="any">Any date</option>
+            <option value="weekend">Weekends</option>
           </select>
         </label>
       </div>
       <div className="filter-row">
-        <div className="filter-tabs" aria-label={t("Event categories")}>
+        <div className="filter-tabs" aria-label="Event categories">
           {categories.map((c) => (
             <button
               key={c}
@@ -138,23 +151,25 @@ export function BrowsePage({
               className={selected === c ? "active" : ""}
               onClick={() => setSelected(c)}
             >
-              {t(c)}
+              {c}
             </button>
           ))}
         </div>
       </div>
       <div className="results-meta">
         <span>
-          {events.length} {events.length === 1 ? t("event") : t("events")} {t("to look forward to")}</span>
+          {events.length} {events.length === 1 ? "event" : "events"} to look
+          forward to
+        </span>
         <label>
-          {t("Sort by")}{" "}
+          Sort by{" "}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            aria-label={t("Sort events")}
+            aria-label="Sort events"
           >
-            <option value="date">{t("Soonest first")}</option>
-            <option value="price">{t("Lowest price")}</option>
+            <option value="date">Soonest first</option>
+            <option value="price">Lowest price</option>
           </select>
         </label>
       </div>
@@ -168,20 +183,21 @@ export function BrowsePage({
         <>
           <EmptyState
             icon="search"
-            title={t("Nothing on the bill just yet.")}
-            description={t("Try a different city, category, or search. A good night might be one filter away.")}
+            title="Nothing on the bill just yet."
+            description="Try a different city, category, or search. A good night might be one filter away."
           />
           <button className="btn btn-secondary reset-filters" onClick={reset}>
-            {t("Clear filters")}</button>
+            Clear filters
+          </button>
         </>
       )}
       <div className="organizer-invite">
         <div>
-          <span className="eyebrow">{t("On the other side of the stage?")}</span>
-          <h2>{t("Put your event on the map.")}</h2>
+          <span className="eyebrow">On the other side of the stage?</span>
+          <h2>Put your event on the map.</h2>
         </div>
         <Link className="btn btn-secondary" href="/organizer">
-          {t("Meet your box office")}{" "}<Icon name="arrow" size={17} />
+          Meet your box office <Icon name="arrow" size={17} />
         </Link>
       </div>
     </main>
@@ -189,10 +205,9 @@ export function BrowsePage({
 }
 
 function EventCard({ event }: { event: Event }) {
-  const { t, locale } = useI18n();
   const { state } = useDemo();
   const remaining = event.tickets.reduce(
-    (s, item) => s + available(state, event, item),
+    (s, t) => s + available(state, event, t),
     0,
   );
   return (
@@ -200,8 +215,8 @@ function EventCard({ event }: { event: Event }) {
       <Poster event={event} />
       <div className="discovery-info">
         <p className="event-kicker">
-          {dateLabel(event.date, { weekday: "short" }, localeCodes[locale])} <span> / </span>{" "}
-          {timeLabel(event.date, localeCodes[locale])}
+          {dateLabel(event.date, { weekday: "short" })} <span> / </span>{" "}
+          {timeLabel(event.date)}
         </p>
         <h2>{event.title}</h2>
         <p className="muted">
@@ -210,13 +225,13 @@ function EventCard({ event }: { event: Event }) {
         <div className="discovery-bottom">
           <strong>
             {remaining
-              ? t(money(Math.min(...event.tickets.map((item) => item.price)), localeCodes[locale]))
-              : t("Sold out")}
+              ? money(Math.min(...event.tickets.map((t) => t.price)))
+              : "Sold out"}
           </strong>
           <span>
-            {Math.min(...event.tickets.map((item) => item.price)) === 0
-              ? t("Register")
-              : t("Get tickets")}
+            {Math.min(...event.tickets.map((t) => t.price)) === 0
+              ? "Register"
+              : "Get tickets"}
             <Icon name="arrow" size={16} />
           </span>
         </div>
@@ -240,7 +255,6 @@ function selectionFromString(raw?: string) {
   return {};
 }
 export function EventPage({ id }: { id: string }) {
-  const { t, locale } = useI18n();
   const { state, ready } = useDemo();
   const event = state.events.find(
     (e) => e.id === id && isEventVisible(state, e),
@@ -251,16 +265,16 @@ export function EventPage({ id }: { id: string }) {
   if (!event) return <MissingEvent />;
   const count = Object.values(quantities).reduce((s, q) => s + q, 0);
   const total = event.tickets.reduce(
-    (s, item) => s + item.price * (quantities[item.id] ?? 0),
+    (s, t) => s + t.price * (quantities[t.id] ?? 0),
     0,
   );
   const past = new Date(event.date).getTime() <= now;
   return (
     <main className="workspace">
-      <Notice>{t("This is a browser demo event.")}{" "}<Link href="/events">{t("Browse connected events")}</Link>.</Notice>
-      <Link href="/events?source=demo" className="text-link muted back-link">
+      <Link href="/events" className="text-link muted back-link">
         <Icon name="back" size={15} />
-        {t("All events")}</Link>
+        All events
+      </Link>
       <div className="event-detail-layout">
         <div className="event-story">
           <Poster event={event} />
@@ -276,29 +290,30 @@ export function EventPage({ id }: { id: string }) {
               <Icon name="calendar" />
               <span>
                 <strong>
-                  {dateLabel(event.date, { weekday: "long", year: "numeric" }, localeCodes[locale])}
+                  {dateLabel(event.date, { weekday: "long", year: "numeric" })}
                 </strong>
-                <small>{timeLabel(event.date, localeCodes[locale])} {t("· Kazakhstan time")}</small>
+                <small>{timeLabel(event.date)} · Kazakhstan time</small>
               </span>
             </div>
             <div>
               <Icon name="pin" />
               <span>
                 <strong>{event.venue}</strong>
-                <small>{event.city}{t(", Kazakhstan")}</small>
+                <small>{event.city}, Kazakhstan</small>
               </span>
             </div>
           </div>
           <section className="event-about">
-            <h2>{t("A little about the night")}</h2>
+            <h2>A little about the night</h2>
             <p>{event.description}</p>
             <div className="good-to-know">
-              <span className="eyebrow">{t("Good to know")}</span>
+              <span className="eyebrow">Good to know</span>
               <p>
-                {t("Keep your ticket handy at the door. Each ticket admits one person; every guest receives a separate ticket reference.")}</p>
+                Keep your ticket handy at the door. Each ticket admits one
+                person; every guest receives a separate ticket reference.
+              </p>
             </div>
           </section>
-          <CalendarActions event={{ id: event.id, title: event.title, startAt: event.date, venue: event.venue, address: event.city, description: event.description, status: event.status, url: `${typeof window === "undefined" ? "" : window.location.origin}/events/${event.id}` }} />
           <div className="host-line">
             <span className="avatar">
               {
@@ -307,65 +322,65 @@ export function EventPage({ id }: { id: string }) {
               }
             </span>
             <div>
-              <small>{t("Put together by")}</small>
+              <small>Put together by</small>
               <p>
                 {state.profiles.find((p) => p.id === event.ownerId)?.name ??
-                  t("Independent organizer")}
+                  "Independent organizer"}
               </p>
             </div>
           </div>
           <div className="event-support-actions">
-            <SupportLink eventId={event.id} label={t("Ask about this event")} />
+            <SupportLink eventId={event.id} label="Ask about this event" />
             <EventReportForm eventId={event.id} />
           </div>
         </div>
         <aside className="booking-panel">
           <div className="booking-heading">
-            <span className="eyebrow">{t("Save your place")}</span>
+            <span className="eyebrow">Save your place</span>
             <Icon name="ticket" />
           </div>
-          <h2>{t("See you there.")}</h2>
-          <p className="muted">{t("Choose your tickets. Bring your people.")}</p>
+          <h2>See you there.</h2>
+          <p className="muted">Choose your tickets. Bring your people.</p>
           <div className="ticket-options">
-            {event.tickets.map((item) => {
-              const left = available(state, event, item);
+            {event.tickets.map((t) => {
+              const left = available(state, event, t);
               const disabled =
-                past || !left || (item.price > 0 && !event.paidSales);
-              const quantity = quantities[item.id] ?? 0;
+                past || !left || (t.price > 0 && !event.paidSales);
+              const quantity = quantities[t.id] ?? 0;
               return (
-                <div className="ticket-option" key={item.id}>
+                <div className="ticket-option" key={t.id}>
                   <div>
-                    <strong>{item.name}</strong>
-                    <p>{item.description}</p>
+                    <strong>{t.name}</strong>
+                    <p>{t.description}</p>
                     <small>
                       {!left
-                        ? t("Sold out")
-                        : item.price > 0 && !event.paidSales
-                          ? t("Sales paused")
-                          : t("Available: {count}", { count: left })}
+                        ? "Sold out"
+                        : t.price > 0 && !event.paidSales
+                          ? "Sales paused"
+                          : `${left} available`}
                     </small>
                   </div>
                   <div className="ticket-option-bottom">
-                    <span>{t(money(item.price, localeCodes[locale]))}</span>
+                    <span>{money(t.price)}</span>
                     <div className="quantity-control">
                       <button
                         disabled={!quantity}
                         onClick={() =>
-                          setQuantities((q) => ({ ...q, [item.id]: quantity - 1 }))
+                          setQuantities((q) => ({ ...q, [t.id]: quantity - 1 }))
                         }
-                        aria-label={t("Remove one {name} ticket", { name: item.name })}
+                        aria-label={`Remove one ${t.name} ticket`}
                       >
                         <Icon name="minus" size={14} />
                       </button>
-                      <output aria-label={t("{name} quantity", { name: item.name })}>
+                      <output aria-label={`${t.name} quantity`}>
                         {quantity}
                       </output>
                       <button
                         disabled={disabled || quantity >= Math.min(8, left)}
                         onClick={() =>
-                          setQuantities((q) => ({ ...q, [item.id]: quantity + 1 }))
+                          setQuantities((q) => ({ ...q, [t.id]: quantity + 1 }))
                         }
-                        aria-label={t("Add one {name} ticket", { name: item.name })}
+                        aria-label={`Add one ${t.name} ticket`}
                       >
                         <Icon name="plus" size={14} />
                       </button>
@@ -377,25 +392,26 @@ export function EventPage({ id }: { id: string }) {
           </div>
           <div className="booking-total">
             <span>
-              {count} {count === 1 ? t("ticket") : t("tickets")}
+              {count} {count === 1 ? "ticket" : "tickets"}
             </span>
-            <strong>{t(money(total, localeCodes[locale]))}</strong>
+            <strong>{money(total)}</strong>
           </div>
           {count && !past ? (
             <Link
               className="btn btn-primary btn-full"
               href={`/checkout/${event.id}?tickets=${encodeURIComponent(JSON.stringify(quantities))}`}
             >
-              {total ? t("Continue to checkout") : t("Register for free")}
+              {total ? "Continue to checkout" : "Register for free"}
               <Icon name="arrow" size={16} />
             </Link>
           ) : (
             <button className="btn btn-primary btn-full" disabled>
-              {past ? t("This event has ended") : t("Choose your tickets")}
+              {past ? "This event has ended" : "Choose your tickets"}
             </button>
           )}
           <p className="booking-footnote">
-            {t("Demo bookings · no payment collected")}</p>
+            Demo bookings · no payment collected
+          </p>
         </aside>
       </div>
     </main>
@@ -409,7 +425,6 @@ export function CheckoutPage({
   id: string;
   tickets?: string;
 }) {
-  const { t, locale } = useI18n();
   const { state, user, ready, update } = useDemo();
   const router = useRouter();
   const [error, setError] = useState("");
@@ -423,16 +438,16 @@ export function CheckoutPage({
   if (!ready) return <LoadingPage />;
   if (!event) return <MissingEvent />;
   const quantities = selectionFromString(tickets);
-  const lines = event.tickets.filter((item) => (quantities[item.id] ?? 0) > 0);
-  const total = lines.reduce((s, item) => s + item.price * quantities[item.id], 0);
+  const lines = event.tickets.filter((t) => (quantities[t.id] ?? 0) > 0);
+  const total = lines.reduce((s, t) => s + t.price * quantities[t.id], 0);
   if (!lines.length)
     return (
       <div className="workspace">
         <EmptyState
-          title={t("Start with a ticket.")}
-          description={t("Choose your ticket type and quantity before checking out.")}
+          title="Start with a ticket."
+          description="Choose your ticket type and quantity before checking out."
           href={`/events/${id}`}
-          label={t("Choose tickets")}
+          label="Choose tickets"
         />
       </div>
     );
@@ -440,10 +455,10 @@ export function CheckoutPage({
     return (
       <div className="workspace">
         <EmptyState
-          title={t("Let’s put a name on your tickets.")}
-          description={t("Open a demo profile to try booking tickets. Backend account sign-in is not available yet.")}
+          title="Let’s put a name on your tickets."
+          description="Open a demo profile to try booking tickets. Backend account sign-in is not available yet."
           href={`/sign-in?next=${encodeURIComponent(`/checkout/${id}?tickets=${encodeURIComponent(JSON.stringify(quantities))}`)}`}
-          label={t("Continue to sign in")}
+          label="Continue to sign in"
         />
       </div>
     );
@@ -468,7 +483,7 @@ export function CheckoutPage({
       setError(
         e instanceof Error
           ? e.message
-          : t("Something went wrong. Please try again."),
+          : "Something went wrong. Please try again.",
       );
       setBusy(false);
     }
@@ -477,21 +492,23 @@ export function CheckoutPage({
     <main className="workspace narrow-workspace">
       <Link className="text-link muted back-link" href={`/events/${id}`}>
         <Icon name="back" size={15} />
-        {t("Back to tickets")}</Link>
+        Back to tickets
+      </Link>
       <PageIntro
-        eyebrow={t("Your next good night")}
-        title={t("Make it a date.")}
-        description={t("A few details, and you’re on the list.")}
+        eyebrow="Your next good night"
+        title="Make it a date."
+        description="A few details, and you’re on the list."
       />
       <div className="checkout-layout">
         <form className="checkout-form" onSubmit={submit}>
           <div className="section-heading">
             <span className="step-number">01</span>
-            <h2>{t("Who's coming?")}</h2>
+            <h2>Who&apos;s coming?</h2>
           </div>
           <div className="stack-form">
             <label>
-              {t("Full name")}<input
+              Full name
+              <input
                 name="name"
                 defaultValue={user.name}
                 autoComplete="name"
@@ -500,7 +517,8 @@ export function CheckoutPage({
               />
             </label>
             <label>
-              {t("Email address")}<input
+              Email address
+              <input
                 name="email"
                 defaultValue={user.email}
                 type="email"
@@ -509,70 +527,75 @@ export function CheckoutPage({
                 maxLength={200}
               />
               <span className="field-hint">
-                {t("Your demo tickets will appear in My tickets. No email will be sent.")}</span>
+                Your demo tickets will appear in My tickets. No email will be
+                sent.
+              </span>
             </label>
           </div>
           <div className="section-heading checkout-step">
             <span className="step-number">02</span>
-            <h2>{total ? t("Demo checkout") : t("Free registration")}</h2>
+            <h2>{total ? "Demo checkout" : "Free registration"}</h2>
           </div>
           <div className="payment-preview">
             <Icon name="ticket" size={25} />
             <div>
               <strong>
-                {total ? t("A test run, on the house.") : t("Your place is free.")}
+                {total ? "A test run, on the house." : "Your place is free."}
               </strong>
               <p>
                 {total
-                  ? t("The order total is {total}. This preview creates a demo order without charging you.", { total: t(money(total, localeCodes[locale])) })
-                  : t("Confirm your details and we’ll save your free ticket in this browser.")}
+                  ? `The order total is ${money(total)}. This preview creates a demo order without charging you.`
+                  : "Confirm your details and we’ll save your free ticket in this browser."}
               </p>
             </div>
           </div>
           <label className="checkbox-label">
-            <input type="checkbox" required />{t("I understand this is a demo ticket, not valid for a real event.")}</label>
+            <input type="checkbox" required />I understand this is a demo
+            ticket, not valid for a real event.
+          </label>
           {error && <Notice error>{error}</Notice>}
           <button className="btn btn-primary btn-full" disabled={busy}>
             {busy
-              ? t("Saving your tickets…")
+              ? "Saving your tickets…"
               : total
-                ? t("Confirm demo booking")
-                : t("Complete registration")}
+                ? "Confirm demo booking"
+                : "Complete registration"}
             <Icon name="arrow" size={17} />
           </button>
         </form>
         <aside className="order-summary">
           <Poster event={event} compact />
           <div className="summary-body">
-            <span className="eyebrow">{t("Your night, at a glance")}</span>
+            <span className="eyebrow">Your night, at a glance</span>
             <h2>{event.title}</h2>
             <p className="muted">
-              {dateLabel(event.date, { weekday: "short" }, localeCodes[locale])} ·{" "}
-              {timeLabel(event.date, localeCodes[locale])}
+              {dateLabel(event.date, { weekday: "short" })} ·{" "}
+              {timeLabel(event.date)}
             </p>
             <p className="muted">
               {event.venue}, {event.city}
             </p>
             <div className="summary-lines">
-              {lines.map((item) => (
-                <div key={item.id}>
+              {lines.map((t) => (
+                <div key={t.id}>
                   <span>
-                    {quantities[item.id]} × {item.name}
+                    {quantities[t.id]} × {t.name}
                   </span>
-                  <span>{t(money(item.price * quantities[item.id], localeCodes[locale]))}</span>
+                  <span>{money(t.price * quantities[t.id])}</span>
                 </div>
               ))}
               <div>
-                <span>{t("Booking fee")}</span>
-                <span>{t(money(0, localeCodes[locale]))}</span>
+                <span>Booking fee</span>
+                <span>{money(0)}</span>
               </div>
             </div>
             <div className="booking-total">
-              <span>{t("Total · KZT")}</span>
-              <strong>{t(money(total, localeCodes[locale]))}</strong>
+              <span>Total · KZT</span>
+              <strong>{money(total)}</strong>
             </div>
             <Link className="text-link" href={`/events/${id}`}>
-              {t("Change tickets")}</Link>
+              Change tickets
+            </Link>
           </div>
         </aside>
       </div>
@@ -581,7 +604,6 @@ export function CheckoutPage({
 }
 
 export function OrdersPage() {
-  const { t, locale } = useI18n();
   const { state, user, ready } = useDemo();
   const [tab, setTab] = useState("upcoming");
   const [now] = useState(Date.now);
@@ -600,28 +622,28 @@ export function OrdersPage() {
   return (
     <main className="workspace">
       <PageIntro
-        eyebrow={t("Your plans, in one place")}
-        title={t("Good nights ahead.")}
-        description={t("The next chapter of your calendar, {name}.", { name: user.name.split(" ")[0] })}
+        eyebrow="Your plans, in one place"
+        title="Good nights ahead."
+        description={`The next chapter of your calendar, ${user.name.split(" ")[0]}.`}
         action={
           <Link className="btn btn-secondary" href="/events">
-            {t("Find your next event")}{" "}<Icon name="arrow" size={16} />
+            Find your next event <Icon name="arrow" size={16} />
           </Link>
         }
       />
       <div className="line-tabs">
-        {["upcoming", "past", "cancelled"].map((item) => (
+        {["upcoming", "past", "cancelled"].map((t) => (
           <button
-            key={item}
-            className={tab === item ? "active" : ""}
-            aria-pressed={tab === item}
-            onClick={() => setTab(item)}
+            key={t}
+            className={tab === t ? "active" : ""}
+            aria-pressed={tab === t}
+            onClick={() => setTab(t)}
           >
-            {item === "upcoming"
-              ? t("Upcoming")
-              : item === "past"
-                ? t("Past events")
-                : t("Cancelled")}
+            {t === "upcoming"
+              ? "Upcoming"
+              : t === "past"
+                ? "Past events"
+                : "Cancelled"}
           </button>
         ))}
       </div>
@@ -643,8 +665,8 @@ export function OrdersPage() {
                       className={`status-badge ${order.status === "confirmed" ? "status-live" : ""}`}
                     >
                       {order.status === "confirmed"
-                        ? t("Confirmed · demo")
-                        : t("Cancelled")}
+                        ? "Confirmed · demo"
+                        : "Cancelled"}
                     </span>
                     <span className="order-reference">
                       {order.id.slice(0, 16)}
@@ -654,19 +676,19 @@ export function OrdersPage() {
                     <Link href={`/orders/${order.id}`}>{order.eventTitle}</Link>
                   </h2>
                   <p className="muted">
-                    {dateLabel(order.eventDate, { weekday: "short" }, localeCodes[locale])} ·{" "}
-                    {timeLabel(order.eventDate, localeCodes[locale])}
+                    {dateLabel(order.eventDate, { weekday: "short" })} ·{" "}
+                    {timeLabel(order.eventDate)}
                     <span className="dot-separator">·</span>
                     {order.venue}
                   </p>
                   <div className="order-card-bottom">
                     <span>
-                      {count} {count === 1 ? t("ticket") : t("tickets")}
+                      {count} {count === 1 ? "ticket" : "tickets"}
                       <span className="dot-separator">/</span>
-                      {t(money(order.total, localeCodes[locale]))}
+                      {money(order.total)}
                     </span>
                     <Link className="text-link" href={`/orders/${order.id}`}>
-                      {t("View order & tickets")}{" "}<Icon name="arrow" size={16} />
+                      View order & tickets <Icon name="arrow" size={16} />
                     </Link>
                   </div>
                 </div>
@@ -678,18 +700,18 @@ export function OrdersPage() {
         <EmptyState
           title={
             tab === "upcoming"
-              ? t("Your calendar has room for a good night.")
+              ? "Your calendar has room for a good night."
               : tab === "past"
-                ? t("The memories are still to come.")
-                : t("No cancelled orders.")
+                ? "The memories are still to come."
+                : "No cancelled orders."
           }
           description={
             tab === "upcoming"
-              ? t("Pick an event you like. Your tickets will be waiting here.")
-              : t("Orders in this category will appear here.")
+              ? "Pick an event you like. Your tickets will be waiting here."
+              : "Orders in this category will appear here."
           }
           href="/events"
-          label={t("Explore events")}
+          label="Explore events"
         />
       )}
     </main>
@@ -704,6 +726,41 @@ function qrPath(value: string) {
       if (qr.modules.get(y, x)) path += `M${x + 4},${y + 4}h1v1h-1z`;
   return { path, size: qr.modules.size + 8 };
 }
+const xml = (text: string) =>
+  text.replace(
+    /[<>&"']/g,
+    (c) =>
+      ({
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        '"': "&quot;",
+        "'": "&apos;",
+      })[c]!,
+  );
+function downloadTicket(order: Order, admission: Admission, type: string) {
+  const qr = qrPath(admission.id);
+  const title = order.eventTitle.match(/.{1,32}(?:\s|$)|.{1,32}/g) ?? [
+    order.eventTitle,
+  ];
+  const content = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="980" viewBox="0 0 720 980"><rect width="720" height="980" rx="24" fill="#f1e7d4"/><g fill="#1a130d" font-family="Arial,sans-serif"><text x="48" y="66" font-size="28" font-weight="700">BiletFlow</text><text x="48" y="106" font-size="12" letter-spacing="2">DEMO TICKET — NOT VALID FOR ENTRY</text>${title
+    .slice(0, 3)
+    .map(
+      (line, i) =>
+        `<text x="48" y="${180 + i * 42}" font-size="32" font-weight="700">${xml(line.trim())}</text>`,
+    )
+    .join(
+      "",
+    )}<text x="48" y="330" font-size="20">${xml(dateLabel(order.eventDate, { weekday: "long", year: "numeric" }))} · ${timeLabel(order.eventDate)}</text><text x="48" y="370" font-size="20">${xml(order.venue)} · ${xml(order.city)}</text><text x="48" y="425" font-size="18">${xml(type)} · ${xml(order.name)}</text><path d="M24 470h672" stroke="#1a130d" stroke-dasharray="6 8"/><svg x="235" y="510" width="250" height="250" viewBox="0 0 ${qr.size} ${qr.size}"><rect width="100%" height="100%" fill="white"/><path d="${qr.path}" fill="#1a130d"/></svg><text x="360" y="800" text-anchor="middle" font-size="11">${xml(admission.id)}</text><text x="360" y="865" text-anchor="middle" font-size="16">One ticket. One guest. One good night.</text><text x="360" y="911" text-anchor="middle" font-size="12">Saved from the BiletFlow frontend demo.</text></g></svg>`;
+  const url = URL.createObjectURL(
+    new Blob([content], { type: "image/svg+xml" }),
+  );
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${admission.id}.svg`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 export function OrderPage({
   id,
   confirmed,
@@ -711,7 +768,6 @@ export function OrderPage({
   id: string;
   confirmed?: boolean;
 }) {
-  const { t, locale } = useI18n();
   const { state, user, ready } = useDemo();
   if (!ready) return <LoadingPage />;
   if (!user) return <Gate />;
@@ -720,10 +776,10 @@ export function OrderPage({
     return (
       <div className="workspace">
         <EmptyState
-          title={t("We couldn’t find that order.")}
-          description={t("It may belong to another demo profile. Your own tickets are one click away.")}
+          title="We couldn’t find that order."
+          description="It may belong to another demo profile. Your own tickets are one click away."
           href="/orders"
-          label={t("My tickets")}
+          label="My tickets"
         />
       </div>
     );
@@ -731,52 +787,56 @@ export function OrderPage({
     <main className="workspace narrow-workspace">
       <Link className="text-link muted back-link" href="/orders">
         <Icon name="back" size={15} />
-        {t("All orders")}</Link>
+        All orders
+      </Link>
       {confirmed && order.status === "confirmed" && (
         <div className="confirmation-banner">
           <span className="confirmation-check">
             <Icon name="check" size={24} />
           </span>
           <div>
-            <span className="eyebrow">{t("You're on the list")}</span>
-            <h2>{t("That's a night to look forward to.")}</h2>
+            <span className="eyebrow">You&apos;re on the list</span>
+            <h2>That&apos;s a night to look forward to.</h2>
             <p>
-              {t("Your demo booking is confirmed. Save a ticket for everyone coming along.")}</p>
+              Your demo booking is confirmed. Save a ticket for everyone coming
+              along.
+            </p>
           </div>
         </div>
       )}
       <PageIntro
-        eyebrow={t("Order / {id}", { id: order.id.slice(0, 16) })}
+        eyebrow={`Order / ${order.id.slice(0, 16)}`}
         title={order.eventTitle}
-        description={`${dateLabel(order.eventDate, { weekday: "long", year: "numeric" }, localeCodes[locale])} · ${timeLabel(order.eventDate, localeCodes[locale])} · ${order.venue}, ${order.city}`}
+        description={`${dateLabel(order.eventDate, { weekday: "long", year: "numeric" })} · ${timeLabel(order.eventDate)} · ${order.venue}, ${order.city}`}
       />
       <div className="order-detail-meta">
         <div>
-          <small>{t("Booked by")}</small>
+          <small>Booked by</small>
           <strong>{order.name}</strong>
           <span>{order.email}</span>
         </div>
         <div>
-          <small>{t("Order total")}</small>
-          <strong>{t(money(order.total, localeCodes[locale]))}</strong>
-          <span>{dateLabel(order.createdAt, { year: "numeric" }, localeCodes[locale])}</span>
+          <small>Order total</small>
+          <strong>{money(order.total)}</strong>
+          <span>{dateLabel(order.createdAt, { year: "numeric" })}</span>
         </div>
         <span
           className={`status-badge ${order.status === "confirmed" ? "status-live" : ""}`}
         >
-          {order.status === "confirmed" ? t("Confirmed · demo") : t("Cancelled")}
+          {order.status === "confirmed" ? "Confirmed · demo" : "Cancelled"}
         </span>
       </div>
-      <SupportLink eventId={order.eventId} orderId={order.id} label={t("Get help with this order")} />
-      <CalendarActions event={{ id: order.eventId, title: state.events.find((event) => event.id === order.eventId)?.title ?? order.eventTitle, startAt: state.events.find((event) => event.id === order.eventId)?.date ?? order.eventDate, venue: state.events.find((event) => event.id === order.eventId)?.venue ?? order.venue, address: state.events.find((event) => event.id === order.eventId)?.city ?? order.city, url: `${typeof window === "undefined" ? "" : window.location.origin}/events/${order.eventId}` }} />
+      <SupportLink eventId={order.eventId} orderId={order.id} label="Get help with this order" />
       {order.status === "cancelled" ? (
         <Notice>
-          {t("This order was cancelled by the organizer. Its tickets are no longer valid.")}</Notice>
+          This order was cancelled by the organizer. Its tickets are no longer
+          valid.
+        </Notice>
       ) : (
         <>
           <div className="section-heading tickets-section-heading">
-            <h2>{t("Your tickets")}</h2>
-            <span className="muted">{t("Each guest has their own reference.")}</span>
+            <h2>Your tickets</h2>
+            <span className="muted">Each guest has their own reference.</span>
           </div>
           <div className="admission-grid">
             {order.lines.flatMap((line, lineIndex) =>
@@ -785,10 +845,10 @@ export function OrderPage({
                 return (
                   <article className="admission-ticket" key={admission.id}>
                     <div className="admission-body">
-                      <span className="eyebrow">{t("BILETFLOW / ADMIT ONE")}</span>
+                      <span className="eyebrow">BILETFLOW / ADMIT ONE</span>
                       <h3>{line.name}</h3>
                       <p>
-                        {order.name} {t("· Guest")}{" "}
+                        {order.name} · Guest{" "}
                         {order.lines
                           .slice(0, lineIndex)
                           .reduce((sum, item) => sum + item.quantity, 0) +
@@ -801,7 +861,7 @@ export function OrderPage({
                           height="115"
                           viewBox={`0 0 ${qr.size} ${qr.size}`}
                           role="img"
-                          aria-label={t("QR code for ticket {id}", { id: admission.id })}
+                          aria-label={`QR code for ticket ${admission.id}`}
                         >
                           <rect width="100%" height="100%" fill="#fff" />
                           <path d={qr.path} fill="#1a130d" />
@@ -809,18 +869,28 @@ export function OrderPage({
                         <span>
                           <strong>
                             {admission.checkedIn
-                              ? t("Checked in")
-                              : t("Ready for your night")}
+                              ? "Checked in"
+                              : "Ready for your night"}
                           </strong>
                           <small>
-                            {t("Demo ticket")}<br />
-                            {t("Not valid for a real event")}</small>
+                            Demo ticket
+                            <br />
+                            Not valid for a real event
+                          </small>
                         </span>
                       </div>
                       <code>{admission.id}</code>
-                      <SupportLink eventId={order.eventId} orderId={order.id} ticketId={admission.id} label={t("Get help with this ticket")} />
+                      <SupportLink eventId={order.eventId} orderId={order.id} ticketId={admission.id} label="Get help with this ticket" />
                     </div>
-                    <TicketExportActions order={order} admission={admission} ticketType={line.name} />
+                    <button
+                      className="admission-download"
+                      onClick={() =>
+                        downloadTicket(order, admission, line.name)
+                      }
+                    >
+                      <Icon name="download" size={17} />
+                      Download ticket <span>SVG</span>
+                    </button>
                   </article>
                 );
               }),
@@ -829,19 +899,20 @@ export function OrderPage({
         </>
       )}
       <p className="order-note">
-        {t("These tickets are part of the frontend preview. Orders are saved only in this browser.")}</p>
+        These tickets are part of the frontend preview. Orders are saved only in
+        this browser.
+      </p>
     </main>
   );
 }
 function MissingEvent() {
-  const { t } = useI18n();
   return (
     <main className="workspace">
       <EmptyState
-        title={t("This one isn’t on the bill.")}
-        description={t("The event may be a draft, or the link may have changed.")}
+        title="This one isn’t on the bill."
+        description="The event may be a draft, or the link may have changed."
         href="/events"
-        label={t("See what’s on")}
+        label="See what’s on"
       />
     </main>
   );
