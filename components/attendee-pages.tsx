@@ -10,12 +10,15 @@ import {
   dateLabel,
   money,
   placeOrder,
+  isEventVisible,
   timeLabel,
   type Admission,
   type Event,
   type Order,
 } from "@/lib/demo-data";
 import { useDemo } from "./demo-provider";
+import { SupportLink } from "./support-pages";
+import { EventReportForm } from "./event-report-form";
 import {
   EmptyState,
   Gate,
@@ -30,7 +33,7 @@ export function LandingEvents() {
   const { state } = useDemo();
   const [now] = useState(Date.now);
   const events = state.events
-    .filter((e) => e.status === "published" && new Date(e.date).getTime() > now)
+    .filter((e) => isEventVisible(state, e) && new Date(e.date).getTime() > now)
     .slice(0, 6);
   return events.length ? (
     <div className="event-grid">
@@ -74,7 +77,7 @@ export function BrowsePage({
         weekday: "short",
       });
       return (
-        e.status === "published" &&
+        isEventVisible(state, e) &&
         new Date(e.date).getTime() > now &&
         (selected === "All events" || e.category === selected) &&
         (location === "All cities" || e.city === location) &&
@@ -254,7 +257,7 @@ function selectionFromString(raw?: string) {
 export function EventPage({ id }: { id: string }) {
   const { state, ready } = useDemo();
   const event = state.events.find(
-    (e) => e.id === id && e.status === "published",
+    (e) => e.id === id && isEventVisible(state, e),
   );
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [now] = useState(Date.now);
@@ -325,6 +328,10 @@ export function EventPage({ id }: { id: string }) {
                   "Independent organizer"}
               </p>
             </div>
+          </div>
+          <div className="event-support-actions">
+            <SupportLink eventId={event.id} label="Ask about this event" />
+            <EventReportForm eventId={event.id} />
           </div>
         </div>
         <aside className="booking-panel">
@@ -426,7 +433,7 @@ export function CheckoutPage({
     () => `TE-${globalThis.crypto?.randomUUID?.() ?? "draft"}`,
   );
   const event = state.events.find(
-    (e) => e.id === id && e.status === "published",
+    (e) => e.id === id && isEventVisible(state, e),
   );
   if (!ready) return <LoadingPage />;
   if (!event) return <MissingEvent />;
@@ -736,7 +743,7 @@ function downloadTicket(order: Order, admission: Admission, type: string) {
   const title = order.eventTitle.match(/.{1,32}(?:\s|$)|.{1,32}/g) ?? [
     order.eventTitle,
   ];
-  const content = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="980" viewBox="0 0 720 980"><rect width="720" height="980" rx="24" fill="#f1e7d4"/><g fill="#1a130d" font-family="Arial,sans-serif"><text x="48" y="66" font-size="28" font-weight="700">ticketelo.</text><text x="48" y="106" font-size="12" letter-spacing="2">DEMO TICKET — NOT VALID FOR ENTRY</text>${title
+  const content = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="980" viewBox="0 0 720 980"><rect width="720" height="980" rx="24" fill="#f1e7d4"/><g fill="#1a130d" font-family="Arial,sans-serif"><text x="48" y="66" font-size="28" font-weight="700">BiletFlow</text><text x="48" y="106" font-size="12" letter-spacing="2">DEMO TICKET — NOT VALID FOR ENTRY</text>${title
     .slice(0, 3)
     .map(
       (line, i) =>
@@ -744,7 +751,7 @@ function downloadTicket(order: Order, admission: Admission, type: string) {
     )
     .join(
       "",
-    )}<text x="48" y="330" font-size="20">${xml(dateLabel(order.eventDate, { weekday: "long", year: "numeric" }))} · ${timeLabel(order.eventDate)}</text><text x="48" y="370" font-size="20">${xml(order.venue)} · ${xml(order.city)}</text><text x="48" y="425" font-size="18">${xml(type)} · ${xml(order.name)}</text><path d="M24 470h672" stroke="#1a130d" stroke-dasharray="6 8"/><svg x="235" y="510" width="250" height="250" viewBox="0 0 ${qr.size} ${qr.size}"><rect width="100%" height="100%" fill="white"/><path d="${qr.path}" fill="#1a130d"/></svg><text x="360" y="800" text-anchor="middle" font-size="11">${xml(admission.id)}</text><text x="360" y="865" text-anchor="middle" font-size="16">One ticket. One guest. One good night.</text><text x="360" y="911" text-anchor="middle" font-size="12">Saved from the Ticketelo frontend demo.</text></g></svg>`;
+    )}<text x="48" y="330" font-size="20">${xml(dateLabel(order.eventDate, { weekday: "long", year: "numeric" }))} · ${timeLabel(order.eventDate)}</text><text x="48" y="370" font-size="20">${xml(order.venue)} · ${xml(order.city)}</text><text x="48" y="425" font-size="18">${xml(type)} · ${xml(order.name)}</text><path d="M24 470h672" stroke="#1a130d" stroke-dasharray="6 8"/><svg x="235" y="510" width="250" height="250" viewBox="0 0 ${qr.size} ${qr.size}"><rect width="100%" height="100%" fill="white"/><path d="${qr.path}" fill="#1a130d"/></svg><text x="360" y="800" text-anchor="middle" font-size="11">${xml(admission.id)}</text><text x="360" y="865" text-anchor="middle" font-size="16">One ticket. One guest. One good night.</text><text x="360" y="911" text-anchor="middle" font-size="12">Saved from the BiletFlow frontend demo.</text></g></svg>`;
   const url = URL.createObjectURL(
     new Blob([content], { type: "image/svg+xml" }),
   );
@@ -819,6 +826,7 @@ export function OrderPage({
           {order.status === "confirmed" ? "Confirmed · demo" : "Cancelled"}
         </span>
       </div>
+      <SupportLink eventId={order.eventId} orderId={order.id} label="Get help with this order" />
       {order.status === "cancelled" ? (
         <Notice>
           This order was cancelled by the organizer. Its tickets are no longer
@@ -837,7 +845,7 @@ export function OrderPage({
                 return (
                   <article className="admission-ticket" key={admission.id}>
                     <div className="admission-body">
-                      <span className="eyebrow">TICKET ELO / ADMIT ONE</span>
+                      <span className="eyebrow">BILETFLOW / ADMIT ONE</span>
                       <h3>{line.name}</h3>
                       <p>
                         {order.name} · Guest{" "}
@@ -872,6 +880,7 @@ export function OrderPage({
                         </span>
                       </div>
                       <code>{admission.id}</code>
+                      <SupportLink eventId={order.eventId} orderId={order.id} ticketId={admission.id} label="Get help with this ticket" />
                     </div>
                     <button
                       className="admission-download"

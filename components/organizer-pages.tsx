@@ -19,6 +19,7 @@ import {
   type TicketType,
 } from "@/lib/demo-data";
 import { useDemo } from "./demo-provider";
+import { SupportLink } from "./support-pages";
 import {
   EmptyState,
   Gate,
@@ -65,6 +66,8 @@ function OrganizerShell({
             <Icon name="users" size={18} />
             Check-in desk
           </Link>
+          <Link href="/support"><Icon name="mail" size={18} />Support inbox</Link>
+          <Link href="/support/new">Contact platform support</Link>
         </nav>
         <Link className="btn btn-primary btn-full" href="/organizer/events/new">
           <Icon name="plus" size={16} />
@@ -668,6 +671,7 @@ export function ManageEventPage({ id }: { id: string }) {
           {timeLabel(event.date)} · {event.city}
         </span>
       </div>
+      <SupportLink eventId={event.id} label="Get platform support for this event" />
       <PageIntro
         eyebrow="Your event"
         title={event.title}
@@ -1277,7 +1281,7 @@ export function CheckInPage() {
   const [selected, setSelected] = useState("");
   if (!ready) return <LoadingPage />;
   if (!user) return <Gate />;
-  const events = state.events.filter((e) => canCheckIn(user, e));
+  const events = state.events.filter((e) => canCheckIn(user, e, state));
   const event = events.find((e) => e.id === selected) ?? events[0];
   const body = (
     <>

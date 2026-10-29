@@ -11,6 +11,8 @@ const titles: Record<string, string> = {
   checkout: "Your booking",
   organizer: "Your box office",
   "check-in": "Check-in desk",
+  admin: "Platform administration",
+  support: "Support cases",
 };
 export async function generateMetadata({
   params,
@@ -18,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ route: string[] }>;
 }): Promise<Metadata> {
   const { route } = await params;
-  return { title: `${titles[route[0]] ?? "Not found"} — ticketelo` };
+  return { title: `${titles[route[0]] ?? "Not found"} — BiletFlow` };
 }
 export default async function Page({
   params,
@@ -29,7 +31,7 @@ export default async function Page({
 }) {
   const { route } = await params;
   const valid =
-    /^(events(?:\/[^/]+)?|orders(?:\/[^/]+)?|checkout\/[^/]+|sign-in|register|profile|organizer(?:\/events\/[^/]+)?|check-in)$/.test(
+    /^(events(?:\/[^/]+)?|orders(?:\/[^/]+)?|checkout\/[^/]+|sign-in|register|profile|admin|support(?:\/[^/]+)?|organizer(?:\/events\/[^/]+)?|check-in)$/.test(
       route.join("/"),
     );
   if (!valid) notFound();

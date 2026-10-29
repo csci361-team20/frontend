@@ -21,7 +21,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "ticketelo — tickets for the nights worth remembering",
+  title: "BiletFlow — tickets for the nights worth remembering",
   description:
     "Cinema, concerts, theatre and everything worth leaving the house for. Real seats, on your phone, in under a minute. Almaty & Astana.",
 };

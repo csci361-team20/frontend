@@ -2,11 +2,6 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { LandingEvents } from "@/components/attendee-pages";
 
-/* ================================================================== *
-   ticketelo — landing page
-   A "cinematic dusk" ticketing storefront for Almaty & Astana.
- * ================================================================== */
-
 /* -- category palette (kept in JS so gradients & dots can be dynamic) -- */
 const HUE: Record<string, string> = {
   cine: "#7ca8ff",
@@ -141,7 +136,7 @@ function Wordmark({ className = "" }: { className?: string }) {
         <TicketMark className="h-5 w-5" />
       </span>
       <span className="text-[1.35rem] font-semibold tracking-tight">
-        ticket<span className="text-ember">elo</span>
+        Bilet<span className="text-ember">Flow</span>
       </span>
     </span>
   );
@@ -241,7 +236,7 @@ export default function Home() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              ticketelo is where Almaty and Astana find what&apos;s on tonight —
+              BiletFlow is where Almaty and Astana find what&apos;s on tonight —
               cinema, concerts, theatre and everything worth leaving the house
               for. Real seats, on your phone, in under a minute.
             </p>
@@ -462,7 +457,7 @@ export default function Home() {
           <div className="lg:col-span-4">
             <div className="lg:sticky lg:top-28">
               <p className="font-mono text-[0.72rem] uppercase tracking-widest text-ember">
-                Why ticketelo
+                Why BiletFlow
               </p>
               <h2 className="mt-3 font-display text-4xl font-light leading-tight tracking-tight text-cream sm:text-5xl">
                 Less faff.
@@ -524,7 +519,7 @@ export default function Home() {
             the coat check.
           </h2>
           <p className="mt-5 max-w-md text-lg leading-relaxed text-muted">
-            Open ticketelo, tap the show, flash the code. We wake the QR up near
+            Open BiletFlow, tap the show, flash the code. We wake the QR up near
             doors — so no screenshot, no scalper, and no “sorry, this one&apos;s
             already been scanned.”
           </p>
@@ -754,7 +749,7 @@ export default function Home() {
           </div>
 
           <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-line pt-8 text-sm text-muted sm:flex-row sm:items-center">
-            <p>© 2026 ticketelo. Made for nights out in Kazakhstan.</p>
+            <p>© 2026 BiletFlow. Made for nights out in Kazakhstan.</p>
             <div className="flex items-center gap-5">
               <span className="font-mono text-[0.75rem]">₸ KZT</span>
               <span className="h-4 w-px bg-line" />

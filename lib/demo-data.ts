@@ -1,5 +1,7 @@
-export type Role = "attendee" | "organizer";
-export type Profile = { id: string; name: string; email: string; role: Role };
+import { initialOperations, recordActivation, type OperationsState } from "./operations";
+
+export type Role = "attendee" | "organizer" | "platform_admin";
+export type Profile = { id: string; name: string; email: string; role: Role; suspended?: boolean; supportOrganizerIds?: string[] };
 export type TicketType = {
   id: string;
   name: string;
@@ -19,6 +21,7 @@ export type Event = {
   description: string;
   status: "draft" | "published";
   paidSales: boolean;
+  suspended?: boolean;
   poster: string;
   tickets: TicketType[];
   staff: { id: string; name: string; email: string }[];
@@ -51,6 +54,7 @@ export type DemoState = {
   currentUserId: string | null;
   events: Event[];
   orders: Order[];
+  operations: OperationsState;
 };
 
 export const categories = [
@@ -92,6 +96,19 @@ export const demoProfiles: Profile[] = [
     name: "Arman Sadykov",
     email: "arman@example.com",
     role: "organizer",
+  },
+  {
+    id: "admin",
+    name: "Aida Nurpeisova",
+    email: "admin@biletflow.example",
+    role: "platform_admin",
+  },
+  {
+    id: "support",
+    name: "Mira Sarsenova",
+    email: "mira@biletflow.example",
+    role: "attendee",
+    supportOrganizerIds: ["arman"],
   },
 ];
 
@@ -228,6 +245,7 @@ export const initialState: DemoState = {
   version: 1,
   profiles: demoProfiles,
   currentUserId: null,
+  operations: initialOperations,
   events: initialEvents,
   orders: [
     {
@@ -278,11 +296,11 @@ export function available(state: DemoState, event: Event, type: TicketType) {
   );
 }
 export function canManage(user: Profile | undefined, event: Event) {
-  return user?.role === "organizer" && event.ownerId === user.id;
+  return user?.role === "organizer" && !user.suspended && !event.suspended && event.ownerId === user.id;
 }
-export function canCheckIn(user: Profile | undefined, event: Event) {
+export function canCheckIn(user: Profile | undefined, event: Event, state?: DemoState) {
   return (
-    !!user &&
+    !!user && !user.suspended && !event.suspended && !state?.profiles.find((p) => p.id === event.ownerId)?.suspended &&
     (canManage(user, event) ||
       event.staff.some(
         (s) => s.email.toLowerCase() === user.email.toLowerCase(),
@@ -290,7 +308,6 @@ export function canCheckIn(user: Profile | undefined, event: Event) {
   );
 }
 
-// Client-side demo rules only. The future backend must enforce these independently.
 export function placeOrder(
   state: DemoState,
   eventId: string,
@@ -300,8 +317,10 @@ export function placeOrder(
 ): DemoState {
   const user = state.profiles.find((p) => p.id === state.currentUserId);
   if (!user) throw new Error("Sign in to save your tickets.");
+  if (user.suspended) throw new Error("This demo profile is suspended. Contact support about your account.");
+  if (!state.operations.settings.bookingsEnabled) throw new Error("Bookings are temporarily paused by the platform.");
   const event = state.events.find(
-    (e) => e.id === eventId && e.status === "published",
+    (e) => e.id === eventId && e.status === "published" && !e.suspended && !state.profiles.find((p) => p.id === e.ownerId)?.suspended,
   );
   if (!event || new Date(event.date).getTime() <= Date.now())
     throw new Error("This event is no longer accepting bookings.");
@@ -354,7 +373,14 @@ export function placeOrder(
     total: lines.reduce((s, l) => s + l.price * l.quantity, 0),
     status: "confirmed",
   };
-  return { ...state, orders: [order, ...state.orders] };
+  return {
+    ...state,
+    orders: [order, ...state.orders],
+    operations: order.total > 0 ? {
+      ...state.operations,
+      payments: [{ id: `PAY-${order.id}`, userId: user.id, eventId, orderId: order.id, amount: order.total, status: "paid", createdAt: order.createdAt }, ...state.operations.payments],
+    } : state.operations,
+  };
 }
 
 export function checkIn(
@@ -368,6 +394,7 @@ export function checkIn(
     !canCheckIn(
       state.profiles.find((p) => p.id === state.currentUserId),
       event,
+      state,
     )
   )
     throw new Error("You do not have check-in access to this event.");
@@ -445,10 +472,31 @@ export function saveEvent(state: DemoState, event: Event): DemoState {
     )
   )
     throw new Error("A ticket type with bookings cannot be removed.");
-  return {
+  const next: DemoState = {
     ...state,
     events: previous
       ? state.events.map((e) => (e.id === event.id ? event : e))
       : [event, ...state.events],
   };
+  return event.paidSales && !previous?.paidSales ? recordActivation(next, event.id) : next;
+}
+
+export function isEventVisible(state: DemoState, event: Event) {
+  return event.status === "published" && !event.suspended && !state.profiles.find((p) => p.id === event.ownerId)?.suspended;
+}
+
+export function migrateDemoState(raw: unknown): DemoState {
+  if (!raw || typeof raw !== "object") throw new Error("Invalid demo data.");
+  const value = raw as Partial<DemoState>;
+  if (value.version !== 1 || !Array.isArray(value.profiles) || !Array.isArray(value.events) || !Array.isArray(value.orders)) throw new Error("Invalid demo data.");
+  if (!value.profiles.every((p) => p && typeof p.id === "string" && typeof p.name === "string" && typeof p.email === "string" && ["attendee", "organizer", "platform_admin"].includes(p.role))) throw new Error("Invalid demo profiles.");
+  if (!value.events.every((e) => e && typeof e.id === "string" && typeof e.title === "string" && typeof e.ownerId === "string" && Array.isArray(e.tickets) && Array.isArray(e.staff))) throw new Error("Invalid demo events.");
+  if (!value.orders.every((o) => o && typeof o.id === "string" && typeof o.userId === "string" && Array.isArray(o.lines) && o.lines.every((l) => Array.isArray(l.admissions)))) throw new Error("Invalid demo orders.");
+  const profiles = [...value.profiles, ...demoProfiles.filter((seed) => !value.profiles!.some((p) => p.id === seed.id))];
+  const incoming = value.operations;
+  const operations = { ...initialOperations, ...incoming, settings: { ...initialOperations.settings, ...incoming?.settings } };
+  for (const key of ["cases", "notifications", "payments", "refunds", "disputes", "activations", "reports", "promotions", "audit"] as const) {
+    if (!Array.isArray(operations[key])) throw new Error("Invalid operations data.");
+  }
+  return { version: 1, profiles, events: value.events, orders: value.orders, currentUserId: typeof value.currentUserId === "string" && profiles.some((p) => p.id === value.currentUserId) ? value.currentUserId : null, operations };
 }

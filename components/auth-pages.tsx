@@ -18,7 +18,7 @@ export function AuthPage({
 }) {
   const { state, update } = useDemo();
   const router = useRouter();
-  const role: Role = initialRole === "organizer" ? "organizer" : "attendee";
+  const role: Role = initialRole === "platform_admin" ? "platform_admin" : initialRole === "organizer" ? "organizer" : "attendee";
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
@@ -29,14 +29,16 @@ export function AuthPage({
       !next.startsWith("/sign-in") &&
       !next.startsWith("/register")
       ? next
-      : userRole === "organizer"
+      : userRole === "platform_admin"
+        ? "/admin"
+        : userRole === "organizer"
         ? "/organizer"
         : "/orders";
   }
   function enter(id: string) {
     const profile = state.profiles.find((p) => p.id === id)!;
     update((s) => ({ ...s, currentUserId: id }));
-    router.push(destination(profile.role));
+    router.push(profile.supportOrganizerIds?.length && !next ? "/support" : destination(profile.role));
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -223,6 +225,14 @@ export function AuthPage({
                 <button className="btn btn-secondary" onClick={() => enter("arman")}>
                   <Icon name="grid" size={17} />
                   Try organizer
+                </button>
+                <button className="btn btn-secondary" onClick={() => enter("admin")}>
+                  <Icon name="grid" size={17} />
+                  Try platform admin
+                </button>
+                <button className="btn btn-secondary" onClick={() => enter("support")}>
+                  <Icon name="mail" size={17} />
+                  Try support staff
                 </button>
               </div>
             </>

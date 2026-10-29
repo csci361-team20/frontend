@@ -4,11 +4,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useDemo } from "./demo-provider";
 import { Brand, Icon } from "./primitives";
 import { canCheckIn } from "@/lib/demo-data";
+import { canViewCase } from "@/lib/operations";
 
 export function SiteHeader() {
   const { user, state, update, storageError } = useDemo();
   const pathname = usePathname();
   const router = useRouter();
+  const unread = state.operations.notifications.filter((n) => n.userId === user?.id && !n.read && (!n.caseId || state.operations.cases.some((c) => c.id === n.caseId && canViewCase(state, user, c)))).length;
   return (
     <>
       <header className="site-header">
@@ -28,10 +30,13 @@ export function SiteHeader() {
               My tickets
             </Link>
             <Link
-              className={pathname.startsWith("/organizer") ? "active" : ""}
-              href="/organizer"
+              className={pathname.startsWith(user?.role === "platform_admin" ? "/admin" : "/organizer") ? "active" : ""}
+              href={user?.role === "platform_admin" ? "/admin" : "/organizer"}
             >
-              For organizers <Icon name="external" size={12} />
+              {user?.role === "platform_admin" ? "Administration" : "For organizers"} <Icon name="external" size={12} />
+            </Link>
+            <Link className={pathname.startsWith("/support") ? "active" : ""} href="/support">
+              Support {unread > 0 && <span className="notification-count" aria-label={`${unread} unread notifications`}>{unread}</span>}
             </Link>
           </div>
           <div className="nav-account">
@@ -53,7 +58,7 @@ export function SiteHeader() {
                 <div className="account-dropdown">
                   <p>
                     {user.name}
-                    <small>{user.role} · demo profile</small>
+                    <small>{user.role.replaceAll("_", " ")} · demo profile</small>
                   </p>
                   <Link
                     href="/profile"
@@ -61,6 +66,12 @@ export function SiteHeader() {
                   >
                     Profile
                   </Link>
+                  <Link href="/support" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
+                    Support cases {unread > 0 ? `(${unread} unread)` : ""}
+                  </Link>
+                  {user.role === "platform_admin" && <Link href="/admin" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>
+                    Platform administration
+                  </Link>}
                   <Link
                     href="/orders"
                     onClick={(e) =>
@@ -83,7 +94,7 @@ export function SiteHeader() {
                       Organizer workspace
                     </Link>
                   )}
-                  {state.events.some((e) => canCheckIn(user, e)) && (
+                  {state.events.some((e) => canCheckIn(user, e, state)) && (
                     <Link
                       href="/check-in"
                       onClick={(e) =>
@@ -131,6 +142,8 @@ export function SiteHeader() {
           {storageError}
         </div>
       )}
+      {user?.suspended && <div className="storage-warning" role="status">This demo profile is suspended. Booking and organizer access are paused. <Link href="/support/new?category=account">Contact support</Link></div>}
+      {!state.operations.settings.bookingsEnabled && <div className="storage-warning" role="status">Bookings are temporarily paused. <Link href="/support">Contact support</Link> for an existing order.</div>}
     </>
   );
 }

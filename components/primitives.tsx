@@ -95,11 +95,11 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
 }
 export function Brand() {
   return (
-    <Link href="/" className="brand" aria-label="Ticketelo home">
+    <Link href="/" className="brand" aria-label="BiletFlow home">
       <span className="brand-mark">
         <Icon name="ticket" />
       </span>
-      ticket<span>elo</span>
+      Bilet<span>Flow</span>
       <span className="brand-period">.</span>
     </Link>
   );
@@ -212,7 +212,7 @@ export function Poster({
       aria-hidden="true"
     >
       <div className="poster-top">
-        <span>TICKET ELO / LIVE CULTURE</span>
+        <span>BILETFLOW / LIVE CULTURE</span>
         <span>{dateLabel(event.date)}</span>
       </div>
       <div className="poster-art">

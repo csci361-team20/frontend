@@ -1,9 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { initialState, type DemoState } from "@/lib/demo-data";
+import { initialState, migrateDemoState, type DemoState } from "@/lib/demo-data";
 
-const KEY = "ticketelo-demo-v1";
+const KEY = "biletflow-demo-v1";
+const LEGACY_KEY = "ticketelo-demo-v1";
 let snapshot = initialState;
 let loaded = false;
 let storageError = "";
@@ -12,16 +13,10 @@ const emit = () => listeners.forEach((listener) => listener());
 
 function readStorage() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (raw) {
-      const value = JSON.parse(raw);
-      if (
-        value.version === 1 &&
-        Array.isArray(value.events) &&
-        Array.isArray(value.orders) &&
-        Array.isArray(value.profiles)
-      )
-        snapshot = value;
+      snapshot = migrateDemoState(JSON.parse(raw));
+      localStorage.setItem(KEY, JSON.stringify(snapshot));
     }
   } catch {
     storageError =
@@ -36,7 +31,7 @@ function subscribe(listener: () => void) {
     emit();
   }
   const sync = (event: StorageEvent) => {
-    if (event.key === KEY) {
+    if (event.key === KEY || event.key === null) {
       snapshot = initialState;
       readStorage();
       emit();
