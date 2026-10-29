@@ -1,0 +1,56 @@
+export type ApiUser = { id: string; full_name: string; email: string; created_at: string };
+export type UserRegistration = { full_name: string; email: string; password: string };
+export type UserUpdateInput = { full_name: string };
+export type VerificationStatus = "pending" | "verified" | "rejected";
+export type ApiOrganizerProfile = { id: string; user_id: string; display_name: string; verification_status: VerificationStatus };
+export type OrganizerProfileCreateInput = { display_name: string };
+export type OrganizerProfileUpdateInput = { display_name: string };
+export type EventStatus = "draft" | "published" | "cancelled" | "completed";
+export type EventVisibility = "public" | "unlisted" | "private";
+export type SeatingType = "general_admission" | "assigned";
+export type EventCreateInput = {
+  organizer_profile_id: string;
+  title: string;
+  description?: string | null;
+  visibility: EventVisibility;
+  seating_type: SeatingType;
+  start_at: string;
+  end_at: string;
+  capacity: number;
+  venue_name?: string | null;
+  venue_address?: string | null;
+  city?: string | null;
+  category?: string | null;
+};
+export type EventUpdateInput = Partial<Omit<EventCreateInput, "organizer_profile_id" | "seating_type">>;
+export type ApiEvent = Omit<EventCreateInput, "description" | "venue_name" | "venue_address" | "city" | "category"> & {
+  id: string;
+  description: string | null;
+  status: EventStatus;
+  paid_sales_activated_at: string | null;
+  venue_name: string | null;
+  venue_address: string | null;
+  city: string | null;
+  category: string | null;
+  created_at: string;
+};
+export type TicketTypeCreateInput = {
+  name: string;
+  description?: string | null;
+  price_kzt: number;
+  quantity: number;
+  max_per_order: number;
+  sale_start?: string | null;
+  sale_end?: string | null;
+  is_hidden: boolean;
+};
+export type TicketTypeUpdateInput = Partial<TicketTypeCreateInput>;
+export type ApiTicketType = Omit<TicketTypeCreateInput, "description" | "sale_start" | "sale_end"> & {
+  id: string;
+  event_id: string;
+  description: string | null;
+  sale_start: string | null;
+  sale_end: string | null;
+  created_at: string;
+};
+export type EventListQuery = { skip?: number; limit?: number; city?: string; category?: string };

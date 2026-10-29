@@ -6,6 +6,7 @@ import { useDemo } from "./demo-provider";
 import { Icon, Notice, Poster } from "./primitives";
 import { initialEvents, type Role } from "@/lib/demo-data";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 export function AuthPage({
   register,
@@ -16,6 +17,7 @@ export function AuthPage({
   next?: string;
   initialRole?: string;
 }) {
+  const { t } = useI18n();
   const { state, update } = useDemo();
   const router = useRouter();
   const role: Role = initialRole === "platform_admin" ? "platform_admin" : initialRole === "organizer" ? "organizer" : "attendee";
@@ -51,18 +53,18 @@ export function AuthPage({
     if (!register) {
       if (!existing)
         return setError(
-          "No demo profile with this email exists in this browser. Try a sample profile below. Backend accounts cannot sign in yet.",
+          t("No demo profile with this email exists in this browser. Try a sample profile below. Backend accounts cannot sign in yet."),
         );
       return enter(existing.id);
     }
     const name = String(data.get("name")).trim();
     if (name.length < 2 || !/^\p{L}+$/u.test(name.replace(/[ '-]/g, "")))
       return setError(
-        "Use at least two characters for your name, with letters, spaces, hyphens or apostrophes only.",
+        t("Use at least two characters for your name, with letters, spaces, hyphens or apostrophes only."),
       );
     const password = String(data.get("password"));
     if (password !== data.get("confirm-password"))
-      return setError("Your passwords do not match.");
+      return setError(t("Your passwords do not match."));
     submitting.current = true;
     setBusy(true);
     try {
@@ -77,7 +79,7 @@ export function AuthPage({
       setError(
         error instanceof Error
           ? error.message
-          : "Could not create your account. Please try again.",
+          : t("Could not create your account. Please try again."),
       );
     } finally {
       submitting.current = false;
@@ -88,61 +90,55 @@ export function AuthPage({
   return (
     <main className="auth-layout">
       <div className="auth-story">
-        <p className="eyebrow">A ticket. A plan. A good night.</p>
+        <p className="eyebrow">{t("A ticket. A plan. A good night.")}</p>
         <h1>
-          Be there
-          <br />
-          <em>for the good part.</em>
+          {t("Be there")}<br />
+          <em>{t("for the good part.")}</em>
         </h1>
         <div className="auth-poster">
           <Poster event={initialEvents[0]} />
           <div className="auth-stub">
             <Icon name="ticket" />
             <span>
-              YOUR NEXT NIGHT OUT
-              <br />
-              <strong>Waiting to happen.</strong>
+              {t("YOUR NEXT NIGHT OUT")}<br />
+              <strong>{t("Waiting to happen.")}</strong>
             </span>
             <span className="stub-number">№ 001</span>
           </div>
         </div>
         <p className="auth-caption">
-          Made for the nights worth remembering.
-          <br />
-          Almaty & Astana.
-        </p>
+          {t("Made for the nights worth remembering.")}<br />
+          {t("Almaty & Astana.")}</p>
       </div>
       <div className="auth-form-side">
         <div className="auth-form-wrap">
           <Link href="/events" className="text-link muted">
             <Icon name="back" size={15} />
-            Back to what&apos;s on
-          </Link>
+            {t("Back to what's on")}</Link>
           <p className="eyebrow">
-            {register ? "Make yourself at home" : "Good to see you"}
+            {register ? t("Make yourself at home") : t("Good to see you")}
           </p>
-          <h2>{register ? "Start your next chapter." : "Welcome back."}</h2>
+          <h2>{register ? t("Start your next chapter.") : t("Welcome back.")}</h2>
           <p className="muted">
             {register
-              ? "A place for your tickets. Or a stage for your ideas."
-              : "Your tickets, your plans, all right here."}
+              ? t("A place for your tickets. Or a stage for your ideas.")
+              : t("Your tickets, your plans, all right here.")}
           </p>
           <div className="demo-note">
             <span className="status-dot" />
             <span>
               {register
-                ? "Create an account with the account service. Sign-in will be available when backend authentication is ready."
-                : "Backend sign-in is not available yet. Demo profiles let you explore tickets and organizer tools in this browser. They do not sign you into a backend account."}
+                ? t("Create an account with the account service. Sign-in will be available when backend authentication is ready.")
+                : t("Backend sign-in is not available yet. Demo profiles let you explore tickets and organizer tools in this browser. They do not sign you into a backend account.")}
             </span>
           </div>
           <form onSubmit={submit} className="stack-form" aria-busy={busy}>
             {register && (
               <label>
-                Your name
-                <input
+                {t("Your name")}<input
                   name="name"
                   autoComplete="name"
-                  placeholder="First and last name"
+                  placeholder={t("First and last name")}
                   required
                   minLength={2}
                   maxLength={100}
@@ -151,7 +147,7 @@ export function AuthPage({
               </label>
             )}
             <label>
-              {register ? "Email address" : "Demo profile email"}
+              {register ? t("Email address") : t("Demo profile email")}
               <input
                 name="email"
                 type="email"
@@ -165,8 +161,7 @@ export function AuthPage({
             {register && (
               <>
                 <label>
-                  Password
-                  <input
+                  {t("Password")}<input
                     name="password"
                     type="password"
                     autoComplete="new-password"
@@ -177,12 +172,10 @@ export function AuthPage({
                     aria-describedby="password-hint"
                   />
                   <span className="field-hint" id="password-hint">
-                    Use 8–128 characters.
-                  </span>
+                    {t("Use 8–128 characters.")}</span>
                 </label>
                 <label>
-                  Confirm password
-                  <input
+                  {t("Confirm password")}<input
                     name="confirm-password"
                     type="password"
                     autoComplete="new-password"
@@ -197,43 +190,39 @@ export function AuthPage({
             {error && <Notice error>{error}</Notice>}
             <button className="btn btn-primary btn-full" disabled={busy}>
               {busy
-                ? "Creating account…"
+                ? t("Creating account…")
                 : register
-                  ? "Create account"
-                  : "Open demo profile"}
+                  ? t("Create account")
+                  : t("Open demo profile")}
               <Icon name="arrow" size={17} />
             </button>
           </form>
           <p className="auth-switch">
-            {register ? "Want to explore the demo?" : "New around here?"}{" "}
+            {register ? t("Want to explore the demo?") : t("New around here?")}{" "}
             <Link
               href={`${register ? "/sign-in" : "/register"}?${suffix.slice(1)}`}
             >
-              {register ? "Open a demo profile" : "Create an account"}
+              {register ? t("Open a demo profile") : t("Create an account")}
             </Link>
           </p>
           {!register && (
             <>
               <div className="demo-divider">
-                <span>Or take a look around</span>
+                <span>{t("Or take a look around")}</span>
               </div>
               <div className="demo-role-buttons">
                 <button className="btn btn-secondary" onClick={() => enter("dana")}>
                   <Icon name="ticket" size={17} />
-                  Try attendee
-                </button>
+                  {t("Try attendee")}</button>
                 <button className="btn btn-secondary" onClick={() => enter("arman")}>
                   <Icon name="grid" size={17} />
-                  Try organizer
-                </button>
+                  {t("Try organizer")}</button>
                 <button className="btn btn-secondary" onClick={() => enter("admin")}>
                   <Icon name="grid" size={17} />
-                  Try platform admin
-                </button>
+                  {t("Try platform admin")}</button>
                 <button className="btn btn-secondary" onClick={() => enter("support")}>
                   <Icon name="mail" size={17} />
-                  Try support staff
-                </button>
+                  {t("Try support staff")}</button>
               </div>
             </>
           )}
