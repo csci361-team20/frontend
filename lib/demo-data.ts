@@ -66,24 +66,32 @@ export const categories = [
   "Comedy",
   "Sport",
 ];
-export const money = (value: number) =>
-  value === 0 ? "Free" : `₸${value.toLocaleString("en-US")}`;
-export const amount = (value: number) => `₸${value.toLocaleString("en-US")}`;
-export const dateLabel = (date: string, options?: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Almaty",
-    day: "numeric",
-    month: "short",
-    ...options,
-  }).format(new Date(date));
-export const timeLabel = (date: string) =>
+export const money = (value: number, locale = "en-US") =>
+  value === 0 ? "Free" : `₸${value.toLocaleString(locale)}`;
+export const amount = (value: number, locale = "en-US") => `₸${value.toLocaleString(locale)}`;
+export const dateLabel = (date: string, options?: Intl.DateTimeFormatOptions, locale = "en-GB") => {
+  const displayOptions: Intl.DateTimeFormatOptions = options?.dateStyle || options?.timeStyle
+    ? { timeZone: "Etc/GMT-5", ...options }
+    : { timeZone: "Etc/GMT-5", day: "numeric", month: "short", ...options };
+  if (locale.toLowerCase().startsWith("kk")) {
+    const { dateStyle, timeStyle, ...fields } = displayOptions;
+    const hasDate = dateStyle || fields.day !== undefined || fields.month !== undefined || fields.year !== undefined;
+    return new Intl.DateTimeFormat(locale, {
+      ...fields,
+      ...(hasDate ? { year: "numeric", month: "2-digit", day: "2-digit", weekday: undefined } : {}),
+      ...(timeStyle ? { hour: "2-digit", minute: "2-digit", hour12: false } : {}),
+    }).format(new Date(date));
+  }
+  return new Intl.DateTimeFormat(locale, displayOptions).format(new Date(date));
+};
+export const timeLabel = (date: string, locale = "en-GB") =>
   dateLabel(date, {
     day: undefined,
     month: undefined,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  });
+  }, locale);
 export const demoProfiles: Profile[] = [
   {
     id: "dana",

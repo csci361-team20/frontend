@@ -13,6 +13,8 @@ const titles: Record<string, string> = {
   "check-in": "Check-in desk",
   admin: "Platform administration",
   support: "Support cases",
+  workspace: "Organizer workspace",
+  "organizer-profile": "Organizer profile",
 };
 export async function generateMetadata({
   params,
@@ -31,7 +33,7 @@ export default async function Page({
 }) {
   const { route } = await params;
   const valid =
-    /^(events(?:\/[^/]+)?|orders(?:\/[^/]+)?|checkout\/[^/]+|sign-in|register|profile|admin|support(?:\/[^/]+)?|organizer(?:\/events\/[^/]+)?|check-in)$/.test(
+    /^(events(?:\/[^/]+)?|orders(?:\/[^/]+)?|checkout\/[^/]+|sign-in|register|profile|organizer-profile|workspace(?:\/events\/[^/]+)?|admin|support(?:\/[^/]+)?|organizer(?:\/events\/[^/]+)?|check-in)$/.test(
       route.join("/"),
     );
   if (!valid) notFound();

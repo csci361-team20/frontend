@@ -10,22 +10,38 @@ cp .env.example .env.local
 bun dev
 ```
 
-Open [localhost:3000](http://localhost:3000). Start the existing backend separately and set `BACKEND_API_URL` in `.env.local` to its API root (default `http://127.0.0.1:8000/api/v1`). On PowerShell, use `Copy-Item .env.example .env.local`. Restart the frontend after changing this setting; hosted builds need it set before `bun run build`.
+Open [localhost:3000](http://localhost:3000). Start the existing backend separately and set `BACKEND_API_URL` in `.env.local` to its API root (default `http://127.0.0.1:8000/api/v1`). On PowerShell, use `Copy-Item .env.example .env.local`. Hosted deployments need this variable in the frontend server's runtime environment and HTTPS for the session cookie.
 
 ## Backend integration
 
-All browser requests to the backend use `lib/api.ts`. Next.js rewrites forward same-origin `/api/backend` requests to `BACKEND_API_URL`, so backend CORS changes are not needed. The collection rewrite preserves FastAPI's trailing slash without redirecting the browser to the backend origin.
+All browser API requests use `lib/api.ts`. A Next.js route handler forwards supported same-origin `/api/backend` requests to `BACKEND_API_URL` and preserves FastAPI's collection slashes. It checks the origin of writes, keeps responses uncached, and sends bearer credentials only from the frontend server to the configured backend.
 
 | Feature | Backend contract | Frontend behavior |
 | --- | --- | --- |
-| Registration | `POST /api/v1/users/` with `{ full_name, email, password }` | Validates name/password confirmation, submits JSON, then opens the returned account's profile. |
-| Profile | `GET /api/v1/users/{id}` | `/profile?id=<uuid>` loads the profile, with loading, retry, and error states. Reloading the page fetches it again. |
-| Sign-in / JWT | Not implemented by the current backend | Sign-in explicitly offers browser demo profiles only. No login, token, or current-user endpoints are assumed or called. |
-| Profile editing | Backend now exposes user updates | The existing frontend profile view remains read-only. |
-| Events and ticket types | Backend routes were added in October | The existing demo workflow is retained; connecting these routes is separate integration work. |
+| Registration | `POST /api/v1/users/` with `{ full_name, email, password }` | Validates name/password confirmation, submits JSON, then offers sign-in. |
+| Sign-in / JWT | `POST /auth/login` with OAuth2 form credentials | `/sign-in` starts a session with an HttpOnly cookie. Signing out clears the frontend session. |
+| Profile | `GET /users/me`, `PATCH /users/{id}` | `/profile` shows the signed-in account and edits its name. Email/password changes are unavailable. |
+| Organizer profiles | `POST /organizers/`, `GET/PATCH /organizers/me` | `/organizer-profile` manages the signed-in account's organizer display name. Verification is read-only. |
+| Public events | `GET /events/`, `GET /events/{id}` | `/events` and the landing page read backend records. City/category filters use the server; search/date/sort apply to loaded pages. More pages load explicitly. |
+| Event management | `GET /events/mine`, `POST /events/`, `PATCH /events/{id}`, `POST /events/{id}/publish`, `POST /events/{id}/cancel` | `/workspace` lists events the account owns or manages; its editor supports venue/address, duration, visibility, capacity, previews, publication and owner cancellation. |
+| Ticket types | `GET/POST /events/{event_id}/ticket-types`, `GET/PATCH /ticket-types/{id}` | Configure integer KZT prices, allocation, sales dates, per-order limits and hiding. Allocation is not remaining inventory. |
 | Orders, check-in, administration, support, payments | Complete contracts for these frontend workflows are not available | Browser demo workflows remain available. No unsupported endpoints are assumed. |
 
-The user response is `{ id, full_name, email, created_at }`. Backend validation and duplicate-email errors appear in the registration form; network failures do not create a demo account. Passwords are sent only in the registration request and are never written to browser storage. Account creation and profile lookup **do not authenticate a user** or select a demo profile. Save the profile URL or use its account ID on `/profile` to view it later.
+The user response is `{ id, full_name, email, created_at }`. Backend validation and duplicate-email errors appear in the registration form. Passwords are submitted only for registration and sign-in. The access token is kept in an HttpOnly, SameSite cookie (Secure in production), not in browser JavaScript storage. The frontend checks the session against `/users/me` after sign-in and on reload. Backend ownership checks control protected writes; browser demo roles never grant backend access.
+
+The workspace uses `/events/mine` to find events owned or managed by the signed-in account, including drafts and private events. The backend derives ownership of a new event from the session. Managers can edit eligible events; the frontend offers cancellation to the event owner. Unpublishing, event deletion, images, registration windows, payout/contact details and immutable server history have no matching contract.
+
+Duplication creates a new draft and optionally copies ticket definitions, resetting sales dates and excluding transactions, admissions, activation and attendees. These are separate API requests, not an atomic operation. If copying fails, the created draft remains available for inspection. Mutations are never automatically retried; a timeout may occur after a server commit, so review the saved draft before repeating a create operation.
+
+Backend events never enter the demo checkout, order, inventory or payment store. The public ticket panel shows definitions, prices and sales windows; real reservations and checkout stay unavailable. Empty/error API results never silently become demo data. `/events?source=demo` opens the separate browser demo; `/organizer` retains its demo workspace.
+
+## Calendar, tickets and languages
+
+Event pages and demo order confirmations export `.ics` files with stable event UIDs, escaped UTF-8 content, actual start/end timestamps, venue context and a clean event URL. Cancelled backend events export a cancellation with the same UID. Google Calendar and Outlook links are available when an actual end time exists; no calendar permissions are requested. Demo events do not define a duration, so their files contain only the recorded start and do not invent an end time. Calendar updates require importing a new file.
+
+Demo admission cards download an A4 PDF or open it for printing. Each export keeps the existing QR reference, embeds a Unicode font for Kazakh/Russian names, and prominently identifies the ticket as a demonstration invalid for entry. Email and payment details are excluded. These PDFs do not represent backend-issued tickets; the server has no admission/order endpoint. PDF libraries and the bundled OFL Noto Sans font load only when exporting.
+
+The language selector offers English, Kazakh and Russian. Static UI translations are separate from organizer/user content. The preference persists under `biletflow-locale`; the initial server render uses English and the client restores the preference. Record IDs, API enum values and user-entered data are not translated.
 
 On the sign-in page, **Try attendee** opens Dana's demo tickets, **Try organizer** opens Arman's box office, **Try platform admin** opens Aida's administration console, and **Try support staff** opens Mira's assigned support inbox. Existing demo profiles can also be selected by email. These profiles are separate from backend accounts; creating a backend account does not enable demo sign-in with that email. The account menu links to profiles, support, and the appropriate workspace.
 
@@ -47,7 +63,9 @@ These policies are frontend demonstration rules. Server authentication, authoriz
 
 - Event search, city/category/weekend filters, and price/date sorting.
 - Event details, ticket quantities, availability, free registration, and demo checkout.
-- Upcoming/past/cancelled orders and individual downloadable SVG tickets with real QR-encoded demo references.
+- Upcoming/past/cancelled demo orders and individual downloadable A4 PDF tickets with existing QR-encoded references.
+- Backend event discovery, organizer profiles, event/ticket editors, previews and event duplication.
+- Calendar downloads, cancellation files and Google/Outlook links for events with a known duration.
 - Organizer event drafts, publishing, ticket types, capacity, and a paid demo sales switch.
 - Attendee search, cancellation, per-ticket check-in, and sales totals based on demo orders.
 - Check-in staff assignment by email. A matching demo profile gets access only to assigned events.
@@ -55,7 +73,7 @@ These policies are frontend demonstration rules. Server authentication, authoriz
 
 ## Deliberately deferred
 
-Payment providers and backend authentication are not connected. Registration and profile reads use the backend database. Demo sign-in identifies a **local demo profile**, not an authenticated user. No payment details are requested. No emails are sent. UI role checks are not a security boundary.
+Payment providers are not connected. Backend sign-in and registration, profiles, events and ticket definitions are connected; browser demo profiles are separate. No payment details are requested or emails sent. Seat maps/holds, issued tickets, orders, activation, refunds/disputes, promo creation/redemption/attribution, authoritative sales analytics, event history, notifications and the full support/admin workflows remain unconnected.
 
 Demo data is stored under `biletflow-demo-v1` in browser localStorage and persists on reload; different browsers/devices do not share it. Existing `ticketelo-demo-v1` data migrates on the first load, preserving profiles, events, orders, and the active profile while adding operations data and the new demo profiles. If storage is unavailable, changes remain temporary. To reset the demo, remove both keys so legacy data is not imported again. Concurrent-tab edits use last-write-wins semantics; production inventory and case writes need server-side concurrency control.
 
@@ -71,11 +89,17 @@ The sample events are fictional and dated October-November 2026. Past events sto
 - `components/admin-pages.tsx`: administration console and operational reporting.
 - `components/support-pages.tsx`: scoped support inbox, contextual requests, conversation threads, and staff controls.
 - `lib/api.ts`: typed backend client, error handling, cancellation, and timeouts.
-- `components/auth-pages.tsx`: backend registration and explicit demo sign-in fallback.
-- `components/profile-page.tsx`: backend profile reads and separate demo profile view.
+- `lib/api-types.ts`: DTOs matching the current backend schemas.
+- `app/api/backend/[...path]/route.ts`, `lib/session.tsx`: server-side bearer forwarding and frontend session state.
+- `components/backend-catalog.tsx`: connected public discovery and event details.
+- `components/backend-workspace.tsx`: connected event/ticket definitions and duplication.
+- `lib/calendar.ts`, `lib/ticket-export.ts`: calendar serialization and printable demo ticket exports.
+- `lib/i18n.tsx`: locale state, translation lookup and language selection.
+- `components/auth-pages.tsx`: backend registration, sign-in, and separate browser demos.
+- `components/profile-page.tsx`: backend account/organizer profiles and separate demo profile view.
 - `app/[...route]/page.tsx`: validated Next.js routes and metadata.
 
-The landing page remains server-rendered; its live event list is a small client boundary using the shared store.
+The landing page has a client boundary for its backend event list. Demo administration, support and ticket transactions use the separate browser store.
 
 ## Checks
 
@@ -86,4 +110,4 @@ bun run lint
 bun run build
 ```
 
-Tests cover API contracts, error handling, booking/inventory rules, support access and context isolation, case history/notifications, administration controls, safe exports, activation snapshots, and legacy demo migration. API tests use mocked responses; a running backend is not required.
+Tests cover API contracts and session forwarding, error handling, calendar identity/escaping/cancellations, A4 PDF output and admission identity, locale interpolation, booking/inventory rules, support access/context, case history/notifications, administration controls, safe exports, activation snapshots and legacy demo migration. API tests use mocked responses; a running backend is not required. Browser integration checks use an isolated in-memory HTTP fixture matching the audited backend routes; they do not verify a deployed backend/database.
