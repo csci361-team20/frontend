@@ -1,0 +1,73 @@
+"use client";
+import {
+  AuthPage,
+  ForgotPasswordPage,
+  ResetPasswordPage,
+  VerifyEmailPage,
+} from "./auth-pages";
+import { ProfilePage } from "./profile-page";
+import { AdminPage } from "./admin-pages";
+import { SupportPage } from "./support-pages";
+import { CheckoutPage, OrderPage, OrdersPage } from "./attendee-pages";
+import { BrowsePage, EventPage } from "./event-pages";
+import { CheckInPage } from "./checkin-page";
+import { NotificationsPage } from "./notifications";
+import { ManageEventPage, NewEventPage, OrganizerPage } from "./organizer-pages";
+
+export function RoleApp({
+  route,
+  query,
+}: {
+  route: string[];
+  query: Record<string, string>;
+}) {
+  if (route[0] === "admin") return <AdminPage view={query.view} />;
+  if (route[0] === "support") return <SupportPage key={route[1] ?? "inbox"} id={route[1]} query={query} />;
+  if (route[0] === "profile") return <ProfilePage />;
+  if (route[0] === "forgot-password") return <ForgotPasswordPage />;
+  if (route[0] === "reset-password") return <ResetPasswordPage token={query.token} />;
+  if (route[0] === "verify-email") return <VerifyEmailPage token={query.token} />;
+  if (route[0] === "sign-in" || route[0] === "register")
+    return (
+      <AuthPage
+        key={`${route[0]}-${query.role}`}
+        register={route[0] === "register"}
+        next={query.next}
+        initialRole={query.role}
+      />
+    );
+  if (route[0] === "events")
+    return route[1] ? (
+      <EventPage key={route[1]} id={route[1]} promo={query.promo} />
+    ) : (
+      <BrowsePage
+        key={`${query.q}-${query.category}-${query.city}-${query.when}`}
+        query={query.q}
+        category={query.category}
+        city={query.city}
+        when={query.when}
+      />
+    );
+  if (route[0] === "checkout")
+    return (
+      <CheckoutPage
+        key={`${route[1]}-${query.tickets}-${query.seats}`}
+        id={route[1]}
+        tickets={query.tickets}
+        seats={query.seats}
+        promo={query.promo}
+        link={query.link}
+      />
+    );
+  if (route[0] === "orders")
+    return route[1] ? (
+      <OrderPage id={route[1]} confirmed={query.confirmed === "1"} />
+    ) : (
+      <OrdersPage />
+    );
+  if (route[0] === "check-in") return <CheckInPage />;
+  if (route[0] === "notifications") return <NotificationsPage />;
+  if (route[2] === "new") return <NewEventPage />;
+  if (route[2]) return <ManageEventPage key={route[2]} id={route[2]} tab={query.tab} />;
+  return <OrganizerPage view={query.view} />;
+}
