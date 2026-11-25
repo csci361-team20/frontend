@@ -10,96 +10,74 @@ cp .env.example .env.local
 bun dev
 ```
 
-Open [localhost:3000](http://localhost:3000). Start the existing backend separately and set `BACKEND_API_URL` in `.env.local` to its API root (default `http://127.0.0.1:8000/api/v1`). On PowerShell, use `Copy-Item .env.example .env.local`. Hosted deployments need this variable in the frontend server's runtime environment and HTTPS for the session cookie.
+Open [localhost:3000](http://localhost:3000). Start the existing backend separately and set `BACKEND_API_URL` in `.env.local` to its API root (default `http://127.0.0.1:8000/api/v1`). On PowerShell, use `Copy-Item .env.example .env.local`. Restart the frontend after changing this setting; hosted builds need it set before `bun run build`.
 
 ## Backend integration
 
-All browser API requests use `lib/api.ts`. A Next.js route handler forwards supported same-origin `/api/backend` requests to `BACKEND_API_URL` and preserves FastAPI's collection slashes. It checks the origin of writes, keeps responses uncached, and sends bearer credentials only from the frontend server to the configured backend.
+All browser requests to the backend use `lib/api.ts`. They go to the same-origin route handler `app/api/backend/[...path]/route.ts`, which forwards them to `BACKEND_API_URL`, so backend CORS changes are not needed. FastAPI's trailing-slash redirects are followed on the server, so the browser never leaves this origin.
 
-| Feature | Backend contract | Frontend behavior |
-| --- | --- | --- |
-| Registration | `POST /api/v1/users/` with `{ full_name, email, password }` | Validates name/password confirmation, submits JSON, then offers sign-in. |
-| Sign-in / JWT | `POST /auth/login` with OAuth2 form credentials | `/sign-in` starts a session with an HttpOnly cookie. Signing out clears the frontend session. |
-| Profile | `GET /users/me`, `PATCH /users/{id}` | `/profile` shows the signed-in account and edits its name. Email/password changes are unavailable. |
-| Organizer profiles | `POST /organizers/`, `GET/PATCH /organizers/me` | `/organizer-profile` manages the signed-in account's organizer display name. Verification is read-only. |
-| Public events | `GET /events/`, `GET /events/{id}` | `/events` and the landing page read backend records. City/category filters use the server; search/date/sort apply to loaded pages. More pages load explicitly. |
-| Event management | `GET /events/mine`, `POST /events/`, `PATCH /events/{id}`, `POST /events/{id}/publish`, `POST /events/{id}/cancel` | `/workspace` lists events the account owns or manages; its editor supports venue/address, duration, visibility, capacity, previews, publication and owner cancellation. |
-| Ticket types | `GET/POST /events/{event_id}/ticket-types`, `GET/PATCH /ticket-types/{id}` | Configure integer KZT prices, allocation, sales dates, per-order limits and hiding. Allocation is not remaining inventory. |
-| Orders, check-in, administration, support, payments | Complete contracts for these frontend workflows are not available | Browser demo workflows remain available. No unsupported endpoints are assumed. |
+**Sign-in.** `POST /api/auth/login` sends the email and password to the backend's `/auth/login` and stores the access and refresh tokens in httpOnly cookies; page scripts never see them. The proxy adds `Authorization: Bearer …` to every backend call, renews an expired access token once with the refresh token, and clears the cookies when both have expired. `POST /api/auth/logout` signs out of this browser; *Sign out on all devices* on the profile page calls the backend's `/auth/logout`.
 
-The user response is `{ id, full_name, email, created_at }`. Backend validation and duplicate-email errors appear in the registration form. Passwords are submitted only for registration and sign-in. The access token is kept in an HttpOnly, SameSite cookie (Secure in production), not in browser JavaScript storage. The frontend checks the session against `/users/me` after sign-in and on reload. Backend ownership checks control protected writes; browser demo roles never grant backend access.
+`components/session-provider.tsx` holds the signed-in account (`/users/me`), the organizer profile (`/organizers/me`, if any) and the events the person works on (`/events/mine`).
 
-The workspace uses `/events/mine` to find events owned or managed by the signed-in account, including drafts and private events. The backend derives ownership of a new event from the session. Managers can edit eligible events; the frontend offers cancellation to the event owner. Unpublishing, event deletion, images, registration windows, payout/contact details and immutable server history have no matching contract.
+| Page | Backend |
+| --- | --- |
+| `/register` | `POST /users/` then signs in; the backend emails a confirmation link |
+| `/sign-in` | `/api/auth/login` (cookie session) |
+| `/verify-email?token=` | `POST /auth/verify-email/confirm` |
+| `/forgot-password` | `POST /auth/password-reset/request` |
+| `/reset-password?token=` | `POST /auth/password-reset/confirm` |
+| `/profile` | `GET/PATCH /users/me`, `POST /auth/verify-email/request`, `POST /auth/change-password`, `POST /auth/logout` |
+| `/`, `/events`, `/events/{id}` | `GET /events/` (filters, sort), `/events/{id}`, ticket types, seat map, calendar links, `POST /events/{id}/reports` |
+| `/checkout/{id}` | `POST /events/{id}/quote`, `POST /events/{id}/orders` (10-minute hold), `POST /orders/{id}/pay` (simulated) |
+| `/orders`, `/orders/{id}` | `/orders/mine`, `/orders/{id}`, cancel, ticket and order PDFs |
+| `/organizer`, `/organizer/events/{id}` | `/organizers/me`, `/events/mine`, events, ticket types, seating, images, activation, campaigns, attendees, orders, refunds, analytics, staff, activity |
+| `/check-in` | `/events/{id}/check-in/scan`, manual check-in, undo, stats, history |
+| `/support`, `/support/{id}` | `/support/cases` (open, reply, assign, status, escalate) |
+| `/notifications` | `/notifications`, unread count, mark read |
+| `/admin` | `/admin/*` (search, users, organizers, events, money monitors, reports, activations, settings, audit, CSV exports), `PATCH /organizers/{id}/verification` |
 
-Duplication creates a new draft and optionally copies ticket definitions, resetting sales dates and excluding transactions, admissions, activation and attendees. These are separate API requests, not an atomic operation. If copying fails, the created draft remains available for inspection. Mutations are never automatically retried; a timeout may occur after a server commit, so review the saved draft before repeating a create operation.
+The email links point at `FRONTEND_URL` in the backend settings (default `http://localhost:3000`).
 
-Backend events never enter the demo checkout, order, inventory or payment store. The public ticket panel shows definitions, prices and sales windows; real reservations and checkout stay unavailable. Empty/error API results never silently become demo data. `/events?source=demo` opens the separate browser demo; `/organizer` retains its demo workspace.
+Every page reads and writes the backend; nothing is stored in the browser except the session cookies. Payments, the activation fee and payouts are simulated by the backend: no card details are asked for and no money moves.
 
-## Calendar, tickets and languages
+Run the unit tests with `npx tsx --test tests/*.test.ts` (or `bun test`).
 
-Event pages and demo order confirmations export `.ics` files with stable event UIDs, escaped UTF-8 content, actual start/end timestamps, venue context and a clean event URL. Cancelled backend events export a cancellation with the same UID. Google Calendar and Outlook links are available when an actual end time exists; no calendar permissions are requested. Demo events do not define a duration, so their files contain only the recorded start and do not invent an end time. Calendar updates require importing a new file.
+## Roles
 
-Demo admission cards download an A4 PDF or open it for printing. Each export keeps the existing QR reference, embeds a Unicode font for Kazakh/Russian names, and prominently identifies the ticket as a demonstration invalid for entry. Email and payment details are excluded. These PDFs do not represent backend-issued tickets; the server has no admission/order endpoint. PDF libraries and the bundled OFL Noto Sans font load only when exporting.
+- **Attendees** browse, register for free events, buy tickets (simulated payment), download PDFs, ask the event team for help and report events.
+- **Organizers** create and edit events, ticket types or assigned seating, open paid sales (identity, payout account, fee, terms), run promo campaigns, see sales and attendees, refund orders (owner only), add a team and read the event's history.
+- **Managers** do the same as the owner except cancel the event and refund. **Check-in staff** only use the check-in desk. **Support staff** answer attendee cases for their events.
+- **Platform admins** use `/admin` and answer organizer and escalated support cases.
 
-The language selector offers English, Kazakh and Russian. Static UI translations are separate from organizer/user content. The preference persists under `biletflow-locale`; the initial server render uses English and the client restores the preference. Record IDs, API enum values and user-entered data are not translated.
+Access is enforced by the backend; the frontend only hides what a role cannot use.
 
-On the sign-in page, **Try attendee** opens Dana's demo tickets, **Try organizer** opens Arman's box office, **Try platform admin** opens Aida's administration console, and **Try support staff** opens Mira's assigned support inbox. Existing demo profiles can also be selected by email. These profiles are separate from backend accounts; creating a backend account does not enable demo sign-in with that email. The account menu links to profiles, support, and the appropriate workspace.
+## Check-in desk
 
-## Administration (4.12)
+Scan with a USB/Bluetooth scanner (it types the code), paste a code, or use the camera where the browser supports `BarcodeDetector`. Results are colour-coded (valid, already used, cancelled, refunded, invalid, wrong event). Guests can also be found by name, email, seat or ticket reference and checked in from the list. A check-in can be undone with a reason; counts refresh every 15 seconds.
 
-`/admin` is available to the platform administrator demo profile. It includes cross-record and per-section search for users, events, orders, and payments; user/event suspension and restoration; event-report review; activation-fee snapshots; payment failures, refund and dispute monitors; escalated/organizer support queues; promotional-code activity; settings; and an append-only administration activity history. Operational CSV exports cover users, events, orders, payments, support, activations, refunds, disputes, and promotions, with spreadsheet-formula escaping.
+## Support and notifications
 
-Suspended events and events from suspended organizers leave public discovery and cannot accept bookings. Suspended profiles cannot book, manage events, or check in tickets. Existing orders and support histories remain available. The platform booking switch blocks new bookings; activation-fee changes apply to future activation records and preserve existing fee snapshots. Financial records are fictional and no real charge or refund occurs.
+Attendee cases go to the event's owner, managers and support staff, who can pass them to the platform team. Organizer cases go straight to the platform team. Threads poll for replies every 20 seconds and every reply also arrives by email. The header bell shows unread notifications (checked once a minute); notifications use the account's language.
 
-## Support cases (4.13)
+## Languages
 
-`/support` lists only cases accessible to the selected demo profile. Event, order, and individual ticket pages link to a contextual request form; organizers can also open platform requests from their workspace. The form carries the requester and available event/order/ticket references, with domain checks against foreign or mismatched context. Categories cover delivery, payment, refunds, seating, event information, check-in, account, activation, and technical issues.
+The whole site (the attendee pages, the organizer workspace, the check-in desk and the admin pages) is in Kazakh, Russian and English, as the SRS asks. The ҚАЗ / РУС / ENG switch in the header changes it straight away; it is kept in the `biletflow-lang` cookie, so the server renders pages in it, and for a signed-in account it is also saved as the profile language, which emails, notifications and the mobile app use. Without a choice the browser's language decides.
 
-Threads persist messages and status/assignment history across navigation and reloads. Event organizers and staff explicitly assigned to their support team handle attendee cases; platform administrators handle organizer requests and escalations. Authorized staff can assign cases and set Open, In Progress, Waiting for Customer, or Resolved. A reply reopens a resolved case without deleting its history. Replies, assignments, and status changes create in-app notifications for authorized participants; inboxes support unread notification handling. Email, WebSockets, presence, typing indicators, voice, and chatbots are not part of this demo.
-
-These policies are frontend demonstration rules. Server authentication, authorization, and cross-device case storage are required before using them for real customer data. The UI identifies the browser demo explicitly.
-
-## Included
-
-- Event search, city/category/weekend filters, and price/date sorting.
-- Event details, ticket quantities, availability, free registration, and demo checkout.
-- Upcoming/past/cancelled demo orders and individual downloadable A4 PDF tickets with existing QR-encoded references.
-- Backend event discovery, organizer profiles, event/ticket editors, previews and event duplication.
-- Calendar downloads, cancellation files and Google/Outlook links for events with a known duration.
-- Organizer event drafts, publishing, ticket types, capacity, and a paid demo sales switch.
-- Attendee search, cancellation, per-ticket check-in, and sales totals based on demo orders.
-- Check-in staff assignment by email. A matching demo profile gets access only to assigned events.
-- Responsive layouts, keyboard focus styles, labeled controls, and empty/error states.
-
-## Deliberately deferred
-
-Payment providers are not connected. Backend sign-in and registration, profiles, events and ticket definitions are connected; browser demo profiles are separate. No payment details are requested or emails sent. Seat maps/holds, issued tickets, orders, activation, refunds/disputes, promo creation/redemption/attribution, authoritative sales analytics, event history, notifications and the full support/admin workflows remain unconnected.
-
-Demo data is stored under `biletflow-demo-v1` in browser localStorage and persists on reload; different browsers/devices do not share it. Existing `ticketelo-demo-v1` data migrates on the first load, preserving profiles, events, orders, and the active profile while adding operations data and the new demo profiles. If storage is unavailable, changes remain temporary. To reset the demo, remove both keys so legacy data is not imported again. Concurrent-tab edits use last-write-wins semantics; production inventory and case writes need server-side concurrency control.
-
-The sample events are fictional and dated October-November 2026. Past events stop accepting bookings. Demo tickets are explicitly marked as invalid for real admission. The check-in desk accepts searches using the QR's ticket reference; camera scanning is not implemented.
+Text is written in English inside `t("…")` (`components/language.tsx` for client components, `lib/i18n-server.ts` for server ones). The Russian and Kazakh versions are in `locales/ru.json` and `locales/kk.json`, keyed by the English text; `{name}` marks a value filled in at runtime, and counted text uses `t.plural(n, "{n} ticket", "{n} tickets")` with the Russian forms one|few|many. `tests/i18n.test.ts` fails when a text has no translation or a translation drops a placeholder. Kazakh dates are put together in `lib/i18n.ts`, because many browsers lack Kazakh month names.
 
 ## Structure
 
-- `lib/demo-data.ts`: typed seed data and booking, inventory, ownership, and check-in rules.
-- `components/demo-provider.tsx`: shared browser store, hydration, and cross-tab storage updates.
-- `components/attendee-pages.tsx`: event discovery, checkout, orders, ticket download.
-- `components/organizer-pages.tsx`: editor, box office, sales, guest list, door team.
-- `lib/operations.ts`: typed administration/support records, scoped access policies, mutations, notifications, and CSV export.
-- `components/admin-pages.tsx`: administration console and operational reporting.
-- `components/support-pages.tsx`: scoped support inbox, contextual requests, conversation threads, and staff controls.
-- `lib/api.ts`: typed backend client, error handling, cancellation, and timeouts.
-- `lib/api-types.ts`: DTOs matching the current backend schemas.
-- `app/api/backend/[...path]/route.ts`, `lib/session.tsx`: server-side bearer forwarding and frontend session state.
-- `components/backend-catalog.tsx`: connected public discovery and event details.
-- `components/backend-workspace.tsx`: connected event/ticket definitions and duplication.
-- `lib/calendar.ts`, `lib/ticket-export.ts`: calendar serialization and printable demo ticket exports.
-- `lib/i18n.tsx`: locale state, translation lookup and language selection.
-- `components/auth-pages.tsx`: backend registration, sign-in, and separate browser demos.
-- `components/profile-page.tsx`: backend account/organizer profiles and separate demo profile view.
-- `app/[...route]/page.tsx`: validated Next.js routes and metadata.
-
-The landing page has a client boundary for its backend event list. Demo administration, support and ticket transactions use the separate browser store.
+- `lib/api.ts`: typed backend client, error handling, cancellation and timeouts.
+- `lib/events.ts`, `lib/orders.ts`, `lib/organizer.ts`, `lib/support.ts`, `lib/admin.ts`: backend types and small helpers.
+- `components/session-provider.tsx`: the signed-in account, organizer profile and staff events.
+- `components/event-pages.tsx`, `components/attendee-pages.tsx`: discovery, event page, checkout, orders and tickets.
+- `components/organizer-pages.tsx`, `organizer-tabs.tsx`, `organizer-profile.tsx`: the organizer workspace.
+- `components/checkin-page.tsx`: the check-in desk.
+- `components/support-pages.tsx`, `components/notifications.tsx`: support cases and notifications.
+- `components/admin-pages.tsx`: platform administration.
+- `app/api/backend/[...path]/route.ts`, `app/api/auth/*`: the same-origin proxy and cookie session.
+- `app/[...route]/page.tsx`: validated routes and page titles.
 
 ## Checks
 
@@ -110,4 +88,4 @@ bun run lint
 bun run build
 ```
 
-Tests cover API contracts and session forwarding, error handling, calendar identity/escaping/cancellations, A4 PDF output and admission identity, locale interpolation, booking/inventory rules, support access/context, case history/notifications, administration controls, safe exports, activation snapshots and legacy demo migration. API tests use mocked responses; a running backend is not required. Browser integration checks use an isolated in-memory HTTP fixture matching the audited backend routes; they do not verify a deployed backend/database.
+Tests cover the API client contracts, error handling, order and checkout helpers, CSV escaping, date inputs, role checks and safe notification links. They use mocked responses; a running backend is not required.

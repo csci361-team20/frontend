@@ -1,9 +1,19 @@
-"use client";
-
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { dateLabel, type Event } from "@/lib/demo-data";
-import { useI18n, localeCodes } from "@/lib/i18n";
+import { eventDate } from "@/lib/events";
+import { useT } from "@/components/language";
+
+/** What a poster shows (see posterInfo in lib/events). */
+export type PosterInfo = {
+  id: string;
+  poster: string;
+  title: string;
+  city: string;
+  category: string;
+  date: string;
+  image?: string | null;
+  timeZone?: string;
+};
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
@@ -73,6 +83,7 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="M14 3h7v7m0-7L10 14M10 3H3v18h18v-7" />
       </>
     ),
+    bell: <path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4Zm4 4h4" />,
     mail: (
       <>
         <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -97,13 +108,12 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   );
 }
 export function Brand() {
-  const { t } = useI18n();
+  const t = useT();
   return (
     <Link href="/" className="brand" aria-label={t("BiletFlow home")}>
       <span className="brand-mark">
         <Icon name="ticket" />
-      </span>
-      Bilet<span>Flow</span>
+      </span>{t("Bilet")}<span>{t("Flow")}</span>
       <span className="brand-period">.</span>
     </Link>
   );
@@ -163,56 +173,58 @@ export function Poster({
   event,
   compact = false,
 }: {
-  event: Event;
+  event: PosterInfo;
   compact?: boolean;
 }) {
-  const { t, locale } = useI18n();
+  const t = useT();
+  const zone = event.timeZone ?? "Asia/Almaty";
+  const day = eventDate(event.date, zone);
+  const year = eventDate(event.date, zone, { year: "numeric" });
   const words: Record<string, ReactNode> = {
     concert: (
-      <>
-        {"STEPPE"}<br />
-        <i>{"SOUND"}</i>
+      <>{t("STEPPE")}<br />
+        <i>{t("SOUND")}</i>
       </>
     ),
     cine: (
-      <>
-        {"THE LONG"}<br />
-        <i>{"AFTERNOON"}</i>
+      <>{t("THE LONG")}<br />
+        <i>{t("AFTERNOON")}</i>
       </>
     ),
     theatre: (
-      <>
-        {"ABAI"}<br />
-        <i>{"in three acts"}</i>
+      <>{t("ABAI")}<br />
+        <i>{t("in three acts")}</i>
       </>
     ),
     fest: (
-      <>
-        {"DESHT"}<br />
-        <i>{"electronic"}</i>
+      <>{t("DESHT")}<br />
+        <i>{t("electronic")}</i>
       </>
     ),
     comedy: (
-      <>
-        {"THE"}<br />
-        <i>{"LATE LIST"}</i>
+      <>{t("THE")}<br />
+        <i>{t("LATE LIST")}</i>
       </>
     ),
     sport: (
-      <>
-        {"TIGERS"}<br />
-        <i>{"× FALCONS"}</i>
+      <>{t("TIGERS")}<br />
+        <i>{t("× FALCONS")}</i>
       </>
     ),
   };
   return (
     <div
-      className={`event-poster poster-${event.poster} ${compact ? "poster-compact" : ""}`}
+      className={`event-poster poster-${event.poster} ${event.image ? "poster-image" : ""} ${compact ? "poster-compact" : ""}`}
       aria-hidden="true"
     >
+      {event.image && (
+        // Organizer uploads are served by the backend; next/image would need its host configured
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="poster-photo" src={event.image} alt="" loading="lazy" />
+      )}
       <div className="poster-top">
         <span>{t("BILETFLOW / LIVE CULTURE")}</span>
-        <span>{dateLabel(event.date, undefined, localeCodes[locale])}</span>
+        <span>{day}</span>
       </div>
       <div className="poster-art">
         <span />
@@ -227,7 +239,7 @@ export function Poster({
       <div className="poster-bottom">
         <span>{event.city.toUpperCase()}</span>
         <span>
-          {event.category.toUpperCase()} — {new Date(event.date).getFullYear()}
+          {event.category.toUpperCase()} — {year}
         </span>
       </div>
     </div>
@@ -250,7 +262,7 @@ export function Notice({
   );
 }
 export function LoadingPage() {
-  const { t } = useI18n();
+  const t = useT();
   return (
     <div className="workspace loading-page" aria-busy="true">
       <span className="eyebrow">{t("Just a moment")}</span>
@@ -260,7 +272,7 @@ export function LoadingPage() {
   );
 }
 export function Gate({ organizer = false }: { organizer?: boolean }) {
-  const { t } = useI18n();
+  const t = useT();
   return (
     <div className="workspace">
       <EmptyState
@@ -272,11 +284,11 @@ export function Gate({ organizer = false }: { organizer?: boolean }) {
         }
         description={
           organizer
-            ? t("Choose a demo organizer profile to create demo events and manage your guest list.")
-            : t("Open a demo profile to book demo events, view orders, and download demo tickets.")
+            ? t("Sign in with an organizer profile to create events and manage your guest list.")
+            : t("Sign in to see your orders, book an event, and download your tickets.")
         }
-        href={organizer ? "/sign-in?role=organizer#demo" : "/sign-in#demo"}
-        label={t("Open a demo profile")}
+        href={organizer ? "/sign-in?role=organizer" : "/sign-in"}
+        label={t("Sign in")}
       />
     </div>
   );

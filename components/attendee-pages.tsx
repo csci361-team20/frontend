@@ -1,487 +1,243 @@
 "use client";
 
+/**
+ * Checkout, My tickets and the order page, backed by the BiletFlow API.
+ * Payments are simulated by the backend: no card details are asked for.
+ */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import QRCode from "qrcode";
+import { api } from "@/lib/api";
 import {
-  available,
-  categories,
-  dateLabel,
-  money,
-  placeOrder,
-  isEventVisible,
-  timeLabel,
-  type Event,
-} from "@/lib/demo-data";
-import { useDemo } from "./demo-provider";
+  eventDate,
+  eventTime,
+  posterInfo,
+  price,
+  venueLine,
+  zoneName,
+  type ApiEvent,
+  type TicketType,
+} from "@/lib/events";
+import {
+  ORDER_STATUS_LABEL,
+  TICKET_STATUS_LABEL,
+  holdLeft,
+  orderTab,
+  parseSelection,
+  ticketCount,
+  type Order,
+  type Quote,
+  type Seat,
+  type SeatMap,
+  type Selection,
+  type TicketDetail,
+} from "@/lib/orders";
+import { useSession } from "./session-provider";
 import { SupportLink } from "./support-pages";
-import { EventReportForm } from "./event-report-form";
-import { BackendCatalog } from "./backend-catalog";
-import { CalendarActions, TicketExportActions } from "./event-utilities";
-import {
-  EmptyState,
-  Gate,
-  Icon,
-  LoadingPage,
-  Notice,
-  PageIntro,
-  Poster,
-} from "./primitives";
-import { useI18n, localeCodes } from "@/lib/i18n";
+import { useLoad } from "./use-load";
+import { EmptyState, Gate, Icon, LoadingPage, Notice, PageIntro, Poster } from "./primitives";
+import { useT } from "@/components/language";
 
-export function LandingEvents() {
-  return <BackendCatalog compact />;
-}
+import { tk, tr } from "@/lib/i18n";
+const failure = (error: unknown, fallback = tk("Something went wrong. Please try again.")) =>
+  tr(error instanceof Error && error.message ? error.message : fallback);
 
-export function BrowsePage({
-  query = "",
-  category = "All events",
-  city = "All cities",
-  when = "any",
-}: {
-  query?: string;
-  category?: string;
-  city?: string;
-  when?: string;
-}) {
-  const { t, locale } = useI18n();
-  const { state } = useDemo();
-  const [search, setSearch] = useState(query);
-  const [selected, setSelected] = useState(
-    categories.includes(category) ? category : "All events",
-  );
-  const [location, setLocation] = useState(city);
-  const [date, setDate] = useState(when);
-  const [sort, setSort] = useState("date");
-  const [now] = useState(Date.now);
-  const events = state.events
-    .filter((e) => {
-      const day = dateLabel(e.date, {
-        day: undefined,
-        month: undefined,
-        weekday: "short",
-      }, localeCodes[locale]);
-      return (
-        isEventVisible(state, e) &&
-        new Date(e.date).getTime() > now &&
-        (selected === "All events" || e.category === selected) &&
-        (location === "All cities" || e.city === location) &&
-        (date !== "weekend" || day === "Sun" || day === "Sat") &&
-        `${e.title} ${e.venue} ${e.category}`
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      );
-    })
-    .sort((a, b) =>
-      sort === "price"
-        ? Math.min(...a.tickets.map((item) => item.price)) -
-          Math.min(...b.tickets.map((item) => item.price))
-        : a.date.localeCompare(b.date),
-    );
-  function reset() {
-    setSearch("");
-    setSelected("All events");
-    setLocation("All cities");
-    setDate("any");
-  }
-  return (
-    <main className="workspace browse-page">
-      <Notice>{t("These events use browser demo data.")}{" "}<Link href="/events">{t("Browse connected events")}</Link>.</Notice>
-      <PageIntro
-        eyebrow={t("Out of the ordinary. Into the city.")}
-        title={t("Make a night of it.")}
-        description={t("Big stages, small rooms, and everything worth showing up for.")}
-        action={
-          <span className="season-note">
-            {t("The autumn edit")}{" "}<span>— 2026</span>
-          </span>
-        }
-      />
-      <div className="browse-search">
-        <label className="search-input">
-          <Icon name="search" />
-          <span className="sr-only">{t("Search events, artists or venues")}</span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("An artist, a venue, a good idea…")}
-          />
-        </label>
-        <label>
-          <Icon name="pin" size={17} />
-          <span className="sr-only">{t("City")}</span>
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          >
-            {["All cities", "Almaty", "Astana", "Shymkent"].map((c) => (
-              <option key={c} value={c}>{t(c)}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <Icon name="calendar" size={17} />
-          <span className="sr-only">{t("When")}</span>
-          <select value={date} onChange={(e) => setDate(e.target.value)}>
-            <option value="any">{t("Any date")}</option>
-            <option value="weekend">{t("Weekends")}</option>
-          </select>
-        </label>
-      </div>
-      <div className="filter-row">
-        <div className="filter-tabs" aria-label={t("Event categories")}>
-          {categories.map((c) => (
-            <button
-              key={c}
-              aria-pressed={selected === c}
-              className={selected === c ? "active" : ""}
-              onClick={() => setSelected(c)}
-            >
-              {t(c)}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="results-meta">
-        <span>
-          {events.length} {events.length === 1 ? t("event") : t("events")} {t("to look forward to")}</span>
-        <label>
-          {t("Sort by")}{" "}
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            aria-label={t("Sort events")}
-          >
-            <option value="date">{t("Soonest first")}</option>
-            <option value="price">{t("Lowest price")}</option>
-          </select>
-        </label>
-      </div>
-      {events.length ? (
-        <div className="event-grid">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
-      ) : (
-        <>
-          <EmptyState
-            icon="search"
-            title={t("Nothing on the bill just yet.")}
-            description={t("Try a different city, category, or search. A good night might be one filter away.")}
-          />
-          <button className="btn btn-secondary reset-filters" onClick={reset}>
-            {t("Clear filters")}</button>
-        </>
-      )}
-      <div className="organizer-invite">
-        <div>
-          <span className="eyebrow">{t("On the other side of the stage?")}</span>
-          <h2>{t("Put your event on the map.")}</h2>
-        </div>
-        <Link className="btn btn-secondary" href="/organizer">
-          {t("Meet your box office")}{" "}<Icon name="arrow" size={17} />
-        </Link>
-      </div>
-    </main>
-  );
-}
+const longDate = (iso: string, zone: string) =>
+  `${eventDate(iso, zone, { weekday: "long", day: "numeric", month: "long", year: "numeric" })} · ${eventTime(iso, zone)}`;
 
-function EventCard({ event }: { event: Event }) {
-  const { t, locale } = useI18n();
-  const { state } = useDemo();
-  const remaining = event.tickets.reduce(
-    (s, item) => s + available(state, event, item),
-    0,
-  );
-  return (
-    <Link href={`/events/${event.id}`} className="discovery-card">
-      <Poster event={event} />
-      <div className="discovery-info">
-        <p className="event-kicker">
-          {dateLabel(event.date, { weekday: "short" }, localeCodes[locale])} <span> / </span>{" "}
-          {timeLabel(event.date, localeCodes[locale])}
-        </p>
-        <h2>{event.title}</h2>
-        <p className="muted">
-          {event.venue} · {event.city}
-        </p>
-        <div className="discovery-bottom">
-          <strong>
-            {remaining
-              ? t(money(Math.min(...event.tickets.map((item) => item.price)), localeCodes[locale]))
-              : t("Sold out")}
-          </strong>
-          <span>
-            {Math.min(...event.tickets.map((item) => item.price)) === 0
-              ? t("Register")
-              : t("Get tickets")}
-            <Icon name="arrow" size={16} />
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function selectionFromString(raw?: string) {
-  try {
-    const parsed: unknown = JSON.parse(raw ?? "{}");
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-      return Object.fromEntries(
-        Object.entries(parsed).filter(
-          ([, v]) => Number.isInteger(v) && Number(v) >= 0 && Number(v) <= 8,
-        ),
-      ) as Record<string, number>;
-  } catch {
-    /* Invalid selection is handled as empty. */
-  }
-  return {};
-}
-export function EventPage({ id }: { id: string }) {
-  const { t, locale } = useI18n();
-  const { state, ready } = useDemo();
-  const event = state.events.find(
-    (e) => e.id === id && isEventVisible(state, e),
-  );
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [now] = useState(Date.now);
-  if (!ready) return <LoadingPage />;
-  if (!event) return <MissingEvent />;
-  const count = Object.values(quantities).reduce((s, q) => s + q, 0);
-  const total = event.tickets.reduce(
-    (s, item) => s + item.price * (quantities[item.id] ?? 0),
-    0,
-  );
-  const past = new Date(event.date).getTime() <= now;
+function LoadFailed({ message, retry }: { message: string; retry: () => void }) {
+  const t = useT();
   return (
     <main className="workspace">
-      <Notice>{t("This is a browser demo event.")}{" "}<Link href="/events">{t("Browse connected events")}</Link>.</Notice>
-      <Link href="/events?source=demo" className="text-link muted back-link">
-        <Icon name="back" size={15} />
-        {t("All events")}</Link>
-      <div className="event-detail-layout">
-        <div className="event-story">
-          <Poster event={event} />
-          <div className="event-title-block">
-            <p className="eyebrow">
-              {event.category} <span> / </span> {event.city}
-            </p>
-            <h1>{event.title}</h1>
-            <p className="event-subtitle">{event.subtitle}</p>
-          </div>
-          <div className="event-facts">
-            <div>
-              <Icon name="calendar" />
-              <span>
-                <strong>
-                  {dateLabel(event.date, { weekday: "long", year: "numeric" }, localeCodes[locale])}
-                </strong>
-                <small>{timeLabel(event.date, localeCodes[locale])} {t("· Kazakhstan time")}</small>
-              </span>
-            </div>
-            <div>
-              <Icon name="pin" />
-              <span>
-                <strong>{event.venue}</strong>
-                <small>{event.city}{t(", Kazakhstan")}</small>
-              </span>
-            </div>
-          </div>
-          <section className="event-about">
-            <h2>{t("A little about the night")}</h2>
-            <p>{event.description}</p>
-            <div className="good-to-know">
-              <span className="eyebrow">{t("Good to know")}</span>
-              <p>
-                {t("Keep your ticket handy at the door. Each ticket admits one person; every guest receives a separate ticket reference.")}</p>
-            </div>
-          </section>
-          <CalendarActions event={{ id: event.id, title: event.title, startAt: event.date, venue: event.venue, address: event.city, description: event.description, status: event.status, url: `${typeof window === "undefined" ? "" : window.location.origin}/events/${event.id}` }} />
-          <div className="host-line">
-            <span className="avatar">
-              {
-                (state.profiles.find((p) => p.id === event.ownerId)?.name ??
-                  "Organizer")[0]
-              }
-            </span>
-            <div>
-              <small>{t("Put together by")}</small>
-              <p>
-                {state.profiles.find((p) => p.id === event.ownerId)?.name ??
-                  t("Independent organizer")}
-              </p>
-            </div>
-          </div>
-          <div className="event-support-actions">
-            <SupportLink eventId={event.id} label={t("Ask about this event")} />
-            <EventReportForm eventId={event.id} />
-          </div>
-        </div>
-        <aside className="booking-panel">
-          <div className="booking-heading">
-            <span className="eyebrow">{t("Save your place")}</span>
-            <Icon name="ticket" />
-          </div>
-          <h2>{t("See you there.")}</h2>
-          <p className="muted">{t("Choose your tickets. Bring your people.")}</p>
-          <div className="ticket-options">
-            {event.tickets.map((item) => {
-              const left = available(state, event, item);
-              const disabled =
-                past || !left || (item.price > 0 && !event.paidSales);
-              const quantity = quantities[item.id] ?? 0;
-              return (
-                <div className="ticket-option" key={item.id}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <p>{item.description}</p>
-                    <small>
-                      {!left
-                        ? t("Sold out")
-                        : item.price > 0 && !event.paidSales
-                          ? t("Sales paused")
-                          : t("Available: {count}", { count: left })}
-                    </small>
-                  </div>
-                  <div className="ticket-option-bottom">
-                    <span>{t(money(item.price, localeCodes[locale]))}</span>
-                    <div className="quantity-control">
-                      <button
-                        disabled={!quantity}
-                        onClick={() =>
-                          setQuantities((q) => ({ ...q, [item.id]: quantity - 1 }))
-                        }
-                        aria-label={t("Remove one {name} ticket", { name: item.name })}
-                      >
-                        <Icon name="minus" size={14} />
-                      </button>
-                      <output aria-label={t("{name} quantity", { name: item.name })}>
-                        {quantity}
-                      </output>
-                      <button
-                        disabled={disabled || quantity >= Math.min(8, left)}
-                        onClick={() =>
-                          setQuantities((q) => ({ ...q, [item.id]: quantity + 1 }))
-                        }
-                        aria-label={t("Add one {name} ticket", { name: item.name })}
-                      >
-                        <Icon name="plus" size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="booking-total">
-            <span>
-              {count} {count === 1 ? t("ticket") : t("tickets")}
-            </span>
-            <strong>{t(money(total, localeCodes[locale]))}</strong>
-          </div>
-          {count && !past ? (
-            <Link
-              className="btn btn-primary btn-full"
-              href={`/checkout/${event.id}?tickets=${encodeURIComponent(JSON.stringify(quantities))}`}
-            >
-              {total ? t("Continue to checkout") : t("Register for free")}
-              <Icon name="arrow" size={16} />
-            </Link>
-          ) : (
-            <button className="btn btn-primary btn-full" disabled>
-              {past ? t("This event has ended") : t("Choose your tickets")}
-            </button>
-          )}
-          <p className="booking-footnote">
-            {t("Demo bookings · no payment collected")}</p>
-        </aside>
-      </div>
+      <Notice error>
+        {message}{" "}
+        <button className="text-link" onClick={retry}>{t("Try again")}</button>
+      </Notice>
     </main>
   );
 }
+
+/* ------------------------------ checkout ------------------------------ */
+
+type CheckoutData = { event: ApiEvent; tickets: TicketType[] };
 
 export function CheckoutPage({
   id,
   tickets,
+  seats,
+  promo,
+  link,
 }: {
   id: string;
   tickets?: string;
+  seats?: string;
+  promo?: string;
+  link?: string;
 }) {
-  const { t, locale } = useI18n();
-  const { state, user, ready, update } = useDemo();
-  const router = useRouter();
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [orderId] = useState(
-    () => `TE-${globalThis.crypto?.randomUUID?.() ?? "draft"}`,
-  );
-  const event = state.events.find(
-    (e) => e.id === id && isEventVisible(state, e),
-  );
-  if (!ready) return <LoadingPage />;
-  if (!event) return <MissingEvent />;
-  const quantities = selectionFromString(tickets);
-  const lines = event.tickets.filter((item) => (quantities[item.id] ?? 0) > 0);
-  const total = lines.reduce((s, item) => s + item.price * quantities[item.id], 0);
-  if (!lines.length)
-    return (
-      <div className="workspace">
-        <EmptyState
-          title={t("Start with a ticket.")}
-          description={t("Choose your ticket type and quantity before checking out.")}
-          href={`/events/${id}`}
-          label={t("Choose tickets")}
-        />
-      </div>
-    );
+  const t = useT();
+  const { user, ready } = useSession();
+  const data = useLoad(`checkout-${id}`, async (signal) => {
+    const [event, types] = await Promise.all([
+      api.events.get(id, { signal }),
+      api.events.ticketTypes(id, { signal }),
+    ]);
+    return { event, tickets: types } satisfies CheckoutData;
+  });
+  const back = `/checkout/${id}?${new URLSearchParams({
+    ...(tickets ? { tickets } : {}),
+    ...(seats ? { seats } : {}),
+    ...(promo ? { promo } : {}),
+    ...(link ? { link } : {}),
+  })}`;
+
+  if (data.status === "error" && data.httpStatus === 404) return <MissingEvent />;
+  if (data.status === "error") return <LoadFailed message={data.error.message} retry={data.reload} />;
+  if (!data.data || !ready) return <LoadingPage />;
   if (!user)
     return (
       <div className="workspace">
         <EmptyState
           title={t("Let’s put a name on your tickets.")}
-          description={t("Open a demo profile to try booking tickets. Backend account sign-in is not available yet.")}
-          href={`/sign-in?next=${encodeURIComponent(`/checkout/${id}?tickets=${encodeURIComponent(JSON.stringify(quantities))}`)}`}
+          description={t("Sign in or create an account to book. Your tickets will wait for you in My tickets.")}
+          href={`/sign-in?next=${encodeURIComponent(back)}`}
           label={t("Continue to sign in")}
         />
       </div>
     );
-  function submit(e: FormEvent<HTMLFormElement>) {
+  return (
+    <Checkout
+      {...data.data}
+      initial={parseSelection(tickets, seats)}
+      initialPromo={promo ?? ""}
+      promoToken={link}
+      buyer={{ name: user.full_name, email: user.email }}
+    />
+  );
+}
+
+function Checkout({
+  event,
+  tickets,
+  initial,
+  initialPromo,
+  promoToken,
+  buyer,
+}: CheckoutData & {
+  initial: Selection;
+  initialPromo: string;
+  promoToken?: string;
+  buyer: { name: string; email: string };
+}) {
+  const t = useT();
+  const router = useRouter();
+  const assigned = event.seating_type === "assigned";
+  const [selection, setSelection] = useState<Selection>(initial);
+  const [pickingSeats, setPickingSeats] = useState(assigned && !initial.seat_ids.length);
+  const [promoInput, setPromoInput] = useState(initialPromo);
+  const [promoCode, setPromoCode] = useState(initialPromo);
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteError, setQuoteError] = useState("");
+  const [nameGuests, setNameGuests] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const count = ticketCount(selection);
+  const selectionKey = JSON.stringify(selection);
+
+  // A promo link (?link=token) fills in its code
+  useEffect(() => {
+    if (!promoToken) return;
+    api.events
+      .promoLink(promoToken)
+      .then((found) => {
+        if (found.event_id === event.id) {
+          setPromoInput(found.code);
+          setPromoCode(found.code);
+        }
+      })
+      .catch(() => setQuoteError(tr("That promo link is no longer valid.")));
+  }, [promoToken, event.id]);
+
+  // Prices come from the backend, including any discount
+  useEffect(() => {
+    if (!count || pickingSeats) return;
+    let live = true;
+    api.events
+      .quote(event.id, JSON.parse(selectionKey) as Selection, promoCode)
+      .then((result) => live && (setQuote(result), setQuoteError("")))
+      .catch((e: unknown) => live && (setQuote(null), setQuoteError(failure(e))));
+    return () => {
+      live = false;
+    };
+  }, [event.id, selectionKey, promoCode, count, pickingSeats]);
+
+  if (pickingSeats)
+    return (
+      <SeatPicker
+        event={event}
+        names={Object.fromEntries(tickets.map((t) => [t.id, t.name]))}
+        chosen={selection.seat_ids}
+        onDone={(seat_ids) => {
+          setSelection({ items: [], seat_ids });
+          setPickingSeats(false);
+        }}
+      />
+    );
+
+  if (!count)
+    return (
+      <div className="workspace">
+        <EmptyState
+          title={t("Start with a ticket.")}
+          description={t("Choose your ticket type and quantity before checking out.")}
+          href={`/events/${event.id}`}
+          label={t("Choose tickets")}
+        />
+      </div>
+    );
+
+  const typeName = (ticketTypeId: string) =>
+    tickets.find((t) => t.id === ticketTypeId)?.name ?? t("Ticket");
+  const guestLabels = selection.seat_ids.length
+    ? selection.seat_ids.map((_, i) => t("Seat {n0}", { n0: i + 1 }))
+    : selection.items.flatMap((item) =>
+        Array.from({ length: item.quantity }, (_, i) => `${typeName(item.ticket_type_id)} · guest ${i + 1}`),
+      );
+  const total = quote?.total_kzt ?? 0;
+
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
+    const form = new FormData(e.currentTarget);
+    const attendees = nameGuests
+      ? guestLabels.map((_, i) => ({
+          name: String(form.get(`guest-name-${i}`)).trim(),
+          email: String(form.get(`guest-email-${i}`)).trim(),
+        }))
+      : undefined;
     setBusy(true);
     setError("");
-    const data = new FormData(e.currentTarget);
     try {
-      update((s) =>
-        placeOrder(
-          s,
-          id,
-          quantities,
-          { name: String(data.get("name")), email: String(data.get("email")) },
-          orderId,
-        ),
-      );
-      router.push(`/orders/${orderId}?confirmed=1`);
+      const order = await api.orders.create(event.id, selection, {
+        promo_code: quote?.promo?.applied ? promoCode : undefined,
+        attendees,
+      });
+      router.push(`/orders/${order.id}${order.status === "confirmed" ? "?confirmed=1" : ""}`);
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : t("Something went wrong. Please try again."),
-      );
+      setError(failure(e));
       setBusy(false);
     }
   }
+
   return (
     <main className="workspace narrow-workspace">
-      <Link className="text-link muted back-link" href={`/events/${id}`}>
-        <Icon name="back" size={15} />
-        {t("Back to tickets")}</Link>
+      <Link className="text-link muted back-link" href={`/events/${event.id}`}>
+        <Icon name="back" size={15} />{t("Back to the event")}</Link>
       <PageIntro
         eyebrow={t("Your next good night")}
         title={t("Make it a date.")}
-        description={t("A few details, and you’re on the list.")}
+        description={t("Check the details, and you’re on the list.")}
       />
       <div className="checkout-layout">
         <form className="checkout-form" onSubmit={submit}>
@@ -490,89 +246,133 @@ export function CheckoutPage({
             <h2>{t("Who's coming?")}</h2>
           </div>
           <div className="stack-form">
-            <label>
-              {t("Full name")}<input
-                name="name"
-                defaultValue={user.name}
-                autoComplete="name"
-                required
-                maxLength={80}
-              />
-            </label>
-            <label>
-              {t("Email address")}<input
-                name="email"
-                defaultValue={user.email}
-                type="email"
-                autoComplete="email"
-                required
-                maxLength={200}
-              />
-              <span className="field-hint">
-                {t("Your demo tickets will appear in My tickets. No email will be sent.")}</span>
-            </label>
+            <p className="muted">{t("Booking as {name} ({email}). Tickets are sent to this email and appear in My tickets.", { name: buyer.name, email: buyer.email })}</p>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={nameGuests}
+                onChange={(e) => setNameGuests(e.target.checked)}
+              />{t("Put each guest's own name and email on their ticket")}</label>
+            {nameGuests &&
+              guestLabels.map((label, i) => (
+                <fieldset className="guest-fields" key={label}>
+                  <legend>{label}</legend>
+                  <label>{t("Name")}<input
+                      name={`guest-name-${i}`}
+                      required
+                      minLength={2}
+                      maxLength={100}
+                      defaultValue={i === 0 ? buyer.name : ""}
+                    />
+                  </label>
+                  <label>{t("Email")}<input
+                      name={`guest-email-${i}`}
+                      type="email"
+                      required
+                      maxLength={200}
+                      defaultValue={i === 0 ? buyer.email : ""}
+                    />
+                  </label>
+                </fieldset>
+              ))}
           </div>
           <div className="section-heading checkout-step">
             <span className="step-number">02</span>
-            <h2>{total ? t("Demo checkout") : t("Free registration")}</h2>
+            <h2>{t("Promo code")}</h2>
+          </div>
+          <div className="promo-row">
+            <input
+              aria-label={t("Promo code")}
+              value={promoInput}
+              maxLength={40}
+              placeholder={t("Have a code?")}
+              onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary btn-small"
+              onClick={() => setPromoCode(promoInput.trim())}
+            >{t("Apply")}</button>
+            {promoCode && (
+              <button
+                type="button"
+                className="text-link"
+                onClick={() => {
+                  setPromoInput("");
+                  setPromoCode("");
+                }}
+              >{t("Remove")}</button>
+            )}
+          </div>
+          {quote?.promo && (
+            <Notice error={!quote.promo.applied}>{quote.promo.message}</Notice>
+          )}
+          <div className="section-heading checkout-step">
+            <span className="step-number">03</span>
+            <h2>{total ? t("Payment") : t("Free registration")}</h2>
           </div>
           <div className="payment-preview">
             <Icon name="ticket" size={25} />
             <div>
-              <strong>
-                {total ? t("A test run, on the house.") : t("Your place is free.")}
-              </strong>
+              <strong>{total ? t("Payment is simulated.") : t("Your place is free.")}</strong>
               <p>
                 {total
-                  ? t("The order total is {total}. This preview creates a demo order without charging you.", { total: t(money(total, localeCodes[locale])) })
-                  : t("Confirm your details and we’ll save your free ticket in this browser.")}
+                  ? t("Your places are held for 10 minutes while you pay {price}. BiletFlow is a study project: no card details are taken and no money moves.", { price: price(total) })
+                  : t("Confirm and your tickets are issued straight away.")}
               </p>
             </div>
           </div>
-          <label className="checkbox-label">
-            <input type="checkbox" required />{t("I understand this is a demo ticket, not valid for a real event.")}</label>
+          {quoteError && <Notice error>{quoteError}</Notice>}
           {error && <Notice error>{error}</Notice>}
-          <button className="btn btn-primary btn-full" disabled={busy}>
-            {busy
-              ? t("Saving your tickets…")
-              : total
-                ? t("Confirm demo booking")
-                : t("Complete registration")}
+          <button className="btn btn-primary btn-full" disabled={busy || !quote}>
+            {busy ? t("Reserving your places…") : total ? t("Continue to payment") : t("Complete registration")}
             <Icon name="arrow" size={17} />
           </button>
         </form>
         <aside className="order-summary">
-          <Poster event={event} compact />
+          <Poster event={posterInfo(event)} compact />
           <div className="summary-body">
             <span className="eyebrow">{t("Your night, at a glance")}</span>
             <h2>{event.title}</h2>
-            <p className="muted">
-              {dateLabel(event.date, { weekday: "short" }, localeCodes[locale])} ·{" "}
-              {timeLabel(event.date, localeCodes[locale])}
-            </p>
-            <p className="muted">
-              {event.venue}, {event.city}
-            </p>
+            <p className="muted">{longDate(event.start_at, event.timezone)}</p>
+            <p className="muted">{venueLine(event)}</p>
             <div className="summary-lines">
-              {lines.map((item) => (
-                <div key={item.id}>
-                  <span>
-                    {quantities[item.id]} × {item.name}
-                  </span>
-                  <span>{t(money(item.price * quantities[item.id], localeCodes[locale]))}</span>
+              {quote ? (
+                <>
+                  {quote.lines.map((line) => (
+                    <div key={line.ticket_type_id}>
+                      <span>
+                        {line.quantity} × {line.name}
+                      </span>
+                      <span>{price(line.subtotal_kzt)}</span>
+                    </div>
+                  ))}
+                  {quote.discount_kzt > 0 && (
+                    <div>
+                      <span>{t("Discount ({code})", { code: quote.promo?.code })}</span>
+                      <span>−{price(quote.discount_kzt)}</span>
+                    </div>
+                  )}
+                  <div>
+                    <span>{t("Booking fee")}</span>
+                    <span>₸0</span>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <span>{quoteError ? t("Prices unavailable") : t("Working out prices…")}</span>
                 </div>
-              ))}
-              <div>
-                <span>{t("Booking fee")}</span>
-                <span>{t(money(0, localeCodes[locale]))}</span>
-              </div>
+              )}
             </div>
             <div className="booking-total">
               <span>{t("Total · KZT")}</span>
-              <strong>{t(money(total, localeCodes[locale]))}</strong>
+              <strong>{quote ? price(quote.total_kzt) : "—"}</strong>
             </div>
-            <Link className="text-link" href={`/events/${id}`}>
-              {t("Change tickets")}</Link>
+            {assigned ? (
+              <button className="text-link" onClick={() => setPickingSeats(true)}>{t("Change seats")}</button>
+            ) : (
+              <Link className="text-link" href={`/events/${event.id}`}>{t("Change tickets")}</Link>
+            )}
           </div>
         </aside>
       </div>
@@ -580,158 +380,436 @@ export function CheckoutPage({
   );
 }
 
+/* ------------------------------ seat map ------------------------------ */
+
+function SeatPicker({
+  event,
+  names,
+  chosen,
+  onDone,
+}: {
+  event: ApiEvent;
+  names: Record<string, string>;
+  chosen: string[];
+  onDone: (seatIds: string[]) => void;
+}) {
+  const t = useT();
+  const [picked, setPicked] = useState<string[]>(chosen);
+  const [refresh, setRefresh] = useState(0);
+  const map = useLoad(`seats-${event.id}-${refresh}`, (signal) => api.events.seatMap(event.id, { signal }));
+
+  // Keep availability current while choosing
+  useEffect(() => {
+    const timer = setInterval(() => setRefresh((n) => n + 1), 20_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const seats = useMemo(() => {
+    const all = new Map<string, Seat>();
+    map.data?.sections.forEach((s) => s.rows.forEach((r) => r.seats.forEach((seat) => all.set(seat.id, seat))));
+    return all;
+  }, [map.data]);
+  // Seats taken by someone else since they were picked drop out
+  const stillFree = picked.filter((id) => !seats.size || seats.get(id)?.status === "available");
+  const total = stillFree.reduce((s, id) => s + (seats.get(id)?.price_kzt ?? 0), 0);
+
+  function toggle(seat: Seat) {
+    if (seat.status !== "available") return;
+    setPicked((current) =>
+      current.includes(seat.id)
+        ? current.filter((id) => id !== seat.id)
+        : current.length >= 20
+          ? current
+          : [...current, seat.id],
+    );
+  }
+
+  return (
+    <main className="workspace">
+      <Link className="text-link muted back-link" href={`/events/${event.id}`}>
+        <Icon name="back" size={15} />{t("Back to the event")}</Link>
+      <PageIntro
+        eyebrow={map.data?.venue_name ?? t("Choose your seats")}
+        title={t("Pick your seats.")}
+        description={t("Tap a seat to choose it, tap again to let it go. Up to 20 seats per order.")}
+      />
+      {map.status === "error" && !map.data && (
+        <Notice error>{map.error.message}</Notice>
+      )}
+      {!map.data ? (
+        map.status !== "error" && <div className="skeleton skeleton-panel" />
+      ) : (
+        <SeatGrid map={map.data} names={names} picked={stillFree} onToggle={toggle} />
+      )}
+      <div className="seat-footer">
+        <span>
+          {t.plural(stillFree.length, "{n} seat", "{n} seats")} · {price(total)}
+        </span>
+        <button
+          className="btn btn-primary"
+          disabled={!stillFree.length}
+          onClick={() => onDone(stillFree)}
+        >{t("Continue with these seats")}{" "}<Icon name="arrow" size={16} />
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function SeatGrid({
+  map,
+  names,
+  picked,
+  onToggle,
+}: {
+  map: SeatMap;
+  names: Record<string, string>;
+  picked: string[];
+  onToggle: (seat: Seat) => void;
+}) {
+  const t = useT();
+  const categories = [...new Set(map.sections.flatMap((s) => s.rows.flatMap((r) => r.seats.map((x) => x.category))))];
+  const prices = new Map<string, number | null>();
+  const labels = new Map<string, string>();
+  map.sections.forEach((s) =>
+    s.rows.forEach((r) =>
+      r.seats.forEach((x) => {
+        prices.set(x.category, x.price_kzt);
+        if (x.ticket_type_id && names[x.ticket_type_id]) labels.set(x.category, names[x.ticket_type_id]);
+      }),
+    ),
+  );
+  return (
+    <div className="seat-map">
+      <div className="seat-stage">{t("Stage")}</div>
+      <div className="seat-legend">
+        {categories.map((c, i) => (
+          <span key={c}>
+            <i className={`seat seat-cat-${i % 4}`} /> {labels.get(c) ?? c} · {prices.get(c) != null ? price(prices.get(c)!) : "—"}
+          </span>
+        ))}
+        <span>
+          <i className="seat seat-taken" />{" "}{t("Taken")}</span>
+        <span>
+          <i className="seat seat-picked" />{" "}{t("Your choice")}</span>
+      </div>
+      {map.sections.map((section) => (
+        <section key={section.name} className="seat-section" aria-label={section.name}>
+          <h3>{section.name}</h3>
+          {section.rows.map((row) => (
+            <div className="seat-row" key={row.label}>
+              <span className="seat-row-label">{row.label}</span>
+              {row.seats.map((seat) => {
+                const mine = picked.includes(seat.id);
+                const cat = categories.indexOf(seat.category) % 4;
+                return (
+                  <button
+                    key={seat.id}
+                    type="button"
+                    className={`seat seat-cat-${cat} ${mine ? "seat-picked" : ""} ${seat.status !== "available" ? "seat-taken" : ""}`}
+                    disabled={seat.status !== "available"}
+                    aria-pressed={mine}
+                    aria-label={seat.label}
+                    title={seat.label}
+                    onClick={() => onToggle(seat)}
+                  >
+                    {seat.is_accessible ? "♿" : seat.number}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------ my tickets ------------------------------ */
+
+type Tab = "upcoming" | "past" | "closed";
+
 export function OrdersPage() {
-  const { t, locale } = useI18n();
-  const { state, user, ready } = useDemo();
-  const [tab, setTab] = useState("upcoming");
+  const t = useT();
+  const { user, ready } = useSession();
+  const [tab, setTab] = useState<Tab>("upcoming");
   const [now] = useState(Date.now);
+  const data = useLoad(user ? `orders-${user.id}` : "orders-none", async (signal) => {
+    if (!user) return { orders: [] as Order[], shared: [] as TicketDetail[] };
+    const [orders, tickets] = await Promise.all([
+      api.orders.mine({ signal }),
+      api.tickets.mine({ signal }),
+    ]);
+    const own = new Set(orders.map((o) => o.id));
+    return { orders, shared: tickets.filter((t) => !own.has(t.order_id)) };
+  });
   if (!ready) return <LoadingPage />;
   if (!user) return <Gate />;
-  const orders = state.orders.filter(
-    (o) =>
-      o.userId === user.id &&
-      (tab === "cancelled"
-        ? o.status === "cancelled"
-        : o.status === "confirmed" &&
-          (tab === "upcoming"
-            ? new Date(o.eventDate).getTime() >= now
-            : new Date(o.eventDate).getTime() < now)),
+  if (data.status === "error") return <LoadFailed message={data.error.message} retry={data.reload} />;
+  if (!data.data) return <LoadingPage />;
+  const orders = data.data.orders.filter((o) => orderTab(o, now) === tab);
+  const shared = data.data.shared.filter((t) =>
+    tab === "closed"
+      ? t.status === "cancelled" || t.status === "refunded"
+      : t.status !== "cancelled" &&
+        t.status !== "refunded" &&
+        (new Date(t.event.end_at).getTime() >= now) === (tab === "upcoming"),
   );
   return (
     <main className="workspace">
       <PageIntro
         eyebrow={t("Your plans, in one place")}
         title={t("Good nights ahead.")}
-        description={t("The next chapter of your calendar, {name}.", { name: user.name.split(" ")[0] })}
+        description={t("The next chapter of your calendar, {n0}.", { n0: user.full_name.split(" ")[0] })}
         action={
-          <Link className="btn btn-secondary" href="/events">
-            {t("Find your next event")}{" "}<Icon name="arrow" size={16} />
+          <Link className="btn btn-secondary" href="/events">{t("Find your next event")}{" "}<Icon name="arrow" size={16} />
           </Link>
         }
       />
       <div className="line-tabs">
-        {["upcoming", "past", "cancelled"].map((item) => (
-          <button
-            key={item}
-            className={tab === item ? "active" : ""}
-            aria-pressed={tab === item}
-            onClick={() => setTab(item)}
-          >
-            {item === "upcoming"
-              ? t("Upcoming")
-              : item === "past"
-                ? t("Past events")
-                : t("Cancelled")}
+        {(["upcoming", "past", "closed"] as Tab[]).map((key) => (
+          <button key={key} className={tab === key ? "active" : ""} aria-pressed={tab === key} onClick={() => setTab(key)}>
+            {key === "upcoming" ? t("Upcoming") : key === "past" ? t("Past events") : t("Cancelled & refunded")}
           </button>
         ))}
       </div>
       {orders.length ? (
         <div className="order-list">
-          {orders.map((order) => {
-            const event = state.events.find((e) => e.id === order.eventId);
-            const count = order.lines.reduce((s, l) => s + l.quantity, 0);
-            return (
-              <article className="order-card" key={order.id}>
-                {event && (
-                  <Link href={`/orders/${order.id}`} className="order-poster">
-                    <Poster event={event} compact />
-                  </Link>
-                )}
-                <div className="order-card-body">
-                  <div className="order-card-top">
-                    <span
-                      className={`status-badge ${order.status === "confirmed" ? "status-live" : ""}`}
-                    >
-                      {order.status === "confirmed"
-                        ? t("Confirmed · demo")
-                        : t("Cancelled")}
-                    </span>
-                    <span className="order-reference">
-                      {order.id.slice(0, 16)}
-                    </span>
-                  </div>
-                  <h2>
-                    <Link href={`/orders/${order.id}`}>{order.eventTitle}</Link>
-                  </h2>
-                  <p className="muted">
-                    {dateLabel(order.eventDate, { weekday: "short" }, localeCodes[locale])} ·{" "}
-                    {timeLabel(order.eventDate, localeCodes[locale])}
-                    <span className="dot-separator">·</span>
-                    {order.venue}
-                  </p>
-                  <div className="order-card-bottom">
-                    <span>
-                      {count} {count === 1 ? t("ticket") : t("tickets")}
-                      <span className="dot-separator">/</span>
-                      {t(money(order.total, localeCodes[locale]))}
-                    </span>
-                    <Link className="text-link" href={`/orders/${order.id}`}>
-                      {t("View order & tickets")}{" "}<Icon name="arrow" size={16} />
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+          {orders.map((order) => (
+            <OrderCard key={order.id} order={order} now={now} />
+          ))}
         </div>
       ) : (
-        <EmptyState
-          title={
-            tab === "upcoming"
-              ? t("Your calendar has room for a good night.")
-              : tab === "past"
-                ? t("The memories are still to come.")
-                : t("No cancelled orders.")
-          }
-          description={
-            tab === "upcoming"
-              ? t("Pick an event you like. Your tickets will be waiting here.")
-              : t("Orders in this category will appear here.")
-          }
-          href="/events"
-          label={t("Explore events")}
-        />
+        !shared.length && (
+          <EmptyState
+            title={
+              tab === "upcoming"
+                ? t("Your calendar has room for a good night.")
+                : tab === "past"
+                  ? t("The memories are still to come.")
+                  : t("Nothing cancelled or refunded.")
+            }
+            description={
+              tab === "upcoming"
+                ? t("Pick an event you like. Your tickets will be waiting here.")
+                : t("Orders in this category will appear here.")
+            }
+            href="/events"
+            label={t("Explore events")}
+          />
+        )
+      )}
+      {shared.length > 0 && (
+        <>
+          <div className="section-heading tickets-section-heading">
+            <h2>{t("Tickets in your name")}</h2>
+            <span className="muted">{t("Booked for you by someone else.")}</span>
+          </div>
+          <div className="admission-grid">
+            {shared.map((ticket) => (
+              <TicketCard key={ticket.id} ticket={ticket} />
+            ))}
+          </div>
+        </>
       )}
     </main>
   );
 }
 
-function qrPath(value: string) {
-  const qr = QRCode.create(value, { errorCorrectionLevel: "M" });
-  let path = "";
-  for (let y = 0; y < qr.modules.size; y++)
-    for (let x = 0; x < qr.modules.size; x++)
-      if (qr.modules.get(y, x)) path += `M${x + 4},${y + 4}h1v1h-1z`;
-  return { path, size: qr.modules.size + 8 };
+function OrderCard({ order, now }: { order: Order; now: number }) {
+  const t = useT();
+  const count = order.items.reduce((s, i) => s + i.quantity, 0);
+  const hold = order.status === "pending" ? holdLeft(order.expires_at, now) : null;
+  return (
+    <article className="order-card">
+      <div className="order-card-body">
+        <div className="order-card-top">
+          <span className={`status-badge ${order.status === "confirmed" ? "status-live" : ""}`}>
+            {order.status === "pending" && !hold ? t("Hold ran out") : ORDER_STATUS_LABEL[order.status]}
+          </span>
+          <span className="order-reference">{order.id.slice(0, 8).toUpperCase()}</span>
+        </div>
+        <h2>
+          <Link href={`/orders/${order.id}`}>{order.event_title}</Link>
+        </h2>
+        <p className="muted">{longDate(order.event_start_at, order.event_timezone)}</p>
+        <div className="order-card-bottom">
+          <span>
+            {t.plural(count, "{n} ticket", "{n} tickets")}
+            <span className="dot-separator">/</span>
+            {price(order.total_kzt)}
+          </span>
+          <Link className="text-link" href={`/orders/${order.id}`}>
+            {order.status === "pending" && hold ? t("Finish payment") : t("View order & tickets")}{" "}
+            <Icon name="arrow" size={16} />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
 }
-export function OrderPage({
-  id,
-  confirmed,
-}: {
-  id: string;
-  confirmed?: boolean;
-}) {
-  const { t, locale } = useI18n();
-  const { state, user, ready } = useDemo();
+
+/* ------------------------------ one order ------------------------------ */
+
+function useQr(value: string | null) {
+  const [svg, setSvg] = useState("");
+  useEffect(() => {
+    if (!value) return;
+    let live = true;
+    QRCode.toString(value, { type: "svg", errorCorrectionLevel: "M", margin: 2 }).then(
+      (text) => live && setSvg(text),
+      () => live && setSvg(""),
+    );
+    return () => {
+      live = false;
+    };
+  }, [value]);
+  return value ? svg : "";
+}
+
+function TicketCard({ ticket }: { ticket: TicketDetail }) {
+  const t = useT();
+  const qr = useQr(ticket.qr_payload);
+  const usable = ticket.status === "valid";
+  return (
+    <article className={`admission-ticket ${usable ? "" : "admission-closed"}`}>
+      <div className="admission-body">
+        <span className="eyebrow">{t("BILETFLOW / ADMIT ONE")}</span>
+        <h3>{ticket.ticket_type_name}</h3>
+        <p>
+          {ticket.attendee_name}
+          {ticket.seat && t(" · {section}, row {row}, seat {number}", { section: ticket.seat.section, row: ticket.seat.row, number: ticket.seat.number })}
+        </p>
+        <p className="muted">
+          {ticket.event.title} · {eventDate(ticket.event.start_at, ticket.event.timezone, { day: "numeric", month: "short" })},{" "}
+          {eventTime(ticket.event.start_at, ticket.event.timezone)}
+        </p>
+        <div className="admission-code">
+          {qr ? (
+            <span
+              className="qr-box"
+              role="img"
+              aria-label={t("QR code for ticket {slice}", { slice: ticket.id.slice(0, 8) })}
+              dangerouslySetInnerHTML={{ __html: qr }}
+            />
+          ) : (
+            <span className="qr-box qr-empty" aria-hidden="true">
+              <Icon name="ticket" size={30} />
+            </span>
+          )}
+          <span>
+            <strong>{TICKET_STATUS_LABEL[ticket.status]}</strong>
+            <small>
+              {usable ? t("Show this code at the door.") : t("This ticket can no longer be used for entry.")}
+            </small>
+          </span>
+        </div>
+        <code>{ticket.id.slice(0, 8).toUpperCase()}</code>
+        <SupportLink
+          eventId={ticket.event.id}
+          orderId={ticket.order_id}
+          ticketId={ticket.id}
+          label={t("Get help with this ticket")}
+        />
+      </div>
+      {usable && (
+        <a className="admission-download" href={api.tickets.pdf(ticket.id)} download>
+          <Icon name="download" size={17} />{t("Download ticket")}{" "}<span>{t("PDF")}</span>
+        </a>
+      )}
+    </article>
+  );
+}
+
+export function OrderPage({ id, confirmed }: { id: string; confirmed?: boolean }) {
+  const t = useT();
+  const { user, ready } = useSession();
+  const [version, setVersion] = useState(0);
+  const data = useLoad(user ? `order-${id}-${version}` : "order-none", async (signal) => {
+    if (!user) return null;
+    const order = await api.orders.get(id, { signal });
+    const tickets =
+      order.status === "confirmed" || order.tickets.length
+        ? (await api.tickets.mine({ signal })).filter((t) => t.order_id === id)
+        : [];
+    return { order, tickets };
+  });
   if (!ready) return <LoadingPage />;
   if (!user) return <Gate />;
-  const order = state.orders.find((o) => o.id === id && o.userId === user.id);
-  if (!order)
+  if (data.status === "error" && [403, 404, 422].includes(data.httpStatus))
     return (
       <div className="workspace">
         <EmptyState
           title={t("We couldn’t find that order.")}
-          description={t("It may belong to another demo profile. Your own tickets are one click away.")}
+          description={t("It may belong to another account. Your own tickets are one click away.")}
           href="/orders"
           label={t("My tickets")}
         />
       </div>
     );
+  if (data.status === "error") return <LoadFailed message={data.error.message} retry={data.reload} />;
+  if (!data.data) return <LoadingPage />;
+  return (
+    <OrderView
+      key={version}
+      {...data.data}
+      confirmed={confirmed}
+      isBuyer={data.data.order.user_id === user.id}
+      onChange={() => setVersion((v) => v + 1)}
+    />
+  );
+}
+
+function OrderView({
+  order,
+  tickets,
+  confirmed,
+  isBuyer,
+  onChange,
+}: {
+  order: Order;
+  tickets: TicketDetail[];
+  confirmed?: boolean;
+  isBuyer: boolean;
+  onChange: () => void;
+}) {
+  const t = useT();
+  const [now, setNow] = useState(Date.now);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const pending = order.status === "pending";
+  const hold = pending ? holdLeft(order.expires_at, now) : null;
+  const free = order.total_kzt === 0;
+  const upcoming = new Date(order.event_start_at).getTime() > now;
+  const failedPayments = order.payments.filter((p) => p.status === "failed");
+
+  // Count down the hold
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [pending]);
+
+  async function act(kind: string, action: () => Promise<unknown>, done?: string) {
+    setBusy(kind);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+      if (done) setNotice(done);
+      onChange();
+    } catch (e) {
+      setError(failure(e));
+    } finally {
+      setBusy("");
+    }
+  }
+
   return (
     <main className="workspace narrow-workspace">
       <Link className="text-link muted back-link" href="/orders">
-        <Icon name="back" size={15} />
-        {t("All orders")}</Link>
+        <Icon name="back" size={15} />{t("All orders")}</Link>
       {confirmed && order.status === "confirmed" && (
         <div className="confirmation-banner">
           <span className="confirmation-check">
@@ -740,101 +818,167 @@ export function OrderPage({
           <div>
             <span className="eyebrow">{t("You're on the list")}</span>
             <h2>{t("That's a night to look forward to.")}</h2>
-            <p>
-              {t("Your demo booking is confirmed. Save a ticket for everyone coming along.")}</p>
+            <p>{t("Your tickets are below and on their way to your inbox.")}</p>
           </div>
         </div>
       )}
       <PageIntro
-        eyebrow={t("Order / {id}", { id: order.id.slice(0, 16) })}
-        title={order.eventTitle}
-        description={`${dateLabel(order.eventDate, { weekday: "long", year: "numeric" }, localeCodes[locale])} · ${timeLabel(order.eventDate, localeCodes[locale])} · ${order.venue}, ${order.city}`}
+        eyebrow={t("Order / {toUpperCase}", { toUpperCase: order.id.slice(0, 8).toUpperCase() })}
+        title={order.event_title}
+        description={`${longDate(order.event_start_at, order.event_timezone)} · ${zoneName(order.event_timezone)}`}
       />
+      {notice && <Notice>{notice}</Notice>}
+      {error && <Notice error>{error}</Notice>}
+
+      {pending && isBuyer && (
+        <section className="payment-panel">
+          {hold ? (
+            <>
+              <span className="eyebrow">{t("Places held for {hold}", { hold: hold })}</span>
+              <h2>{t("Pay {price} to confirm.", { price: price(order.total_kzt) })}</h2>
+              <p className="muted">{t("Payment is simulated: no card details are taken and no money moves. Choose how the test payment should end.")}</p>
+              {failedPayments.length > 0 && (
+                <Notice error>{t("The last payment attempt failed{n0}. Your places are still held.", { n0: failedPayments.at(-1)?.failure_reason ? `: ${failedPayments.at(-1)?.failure_reason}` : "" })}</Notice>
+              )}
+              <div className="button-row">
+                <button
+                  className="btn btn-primary"
+                  disabled={!!busy}
+                  onClick={() => act("pay", () => api.orders.pay(order.id), t("Payment received. Your tickets are ready."))}
+                >
+                  {busy === "pay" ? t("Paying…") : t("Pay now (simulated)")}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={!!busy}
+                  onClick={() => act("fail", () => api.orders.pay(order.id, "failure"))}
+                >{t("Simulate a declined card")}</button>
+                <button
+                  className="text-link"
+                  disabled={!!busy}
+                  onClick={() => act("cancel", () => api.orders.cancel(order.id), t("Checkout cancelled. The places were released."))}
+                >{t("Cancel checkout")}</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>{t("Your hold ran out.")}</h2>
+              <p className="muted">{t("The places went back on sale. You can start again from the event page.")}</p>
+              <Link className="btn btn-primary" href={`/events/${order.event_id}`}>{t("Back to the event")}</Link>
+            </>
+          )}
+        </section>
+      )}
+
       <div className="order-detail-meta">
         <div>
           <small>{t("Booked by")}</small>
-          <strong>{order.name}</strong>
-          <span>{order.email}</span>
+          <strong>{order.buyer_name}</strong>
+          <span>{order.buyer_email}</span>
         </div>
         <div>
           <small>{t("Order total")}</small>
-          <strong>{t(money(order.total, localeCodes[locale]))}</strong>
-          <span>{dateLabel(order.createdAt, { year: "numeric" }, localeCodes[locale])}</span>
+          <strong>{price(order.total_kzt)}</strong>
+          <span>
+            {order.discount_kzt > 0 && t("{price} off with {promo_code} · ", { price: price(order.discount_kzt), promo_code: order.promo_code })}
+            {eventDate(order.created_at, order.event_timezone, { day: "numeric", month: "short", year: "numeric" })}
+          </span>
         </div>
-        <span
-          className={`status-badge ${order.status === "confirmed" ? "status-live" : ""}`}
-        >
-          {order.status === "confirmed" ? t("Confirmed · demo") : t("Cancelled")}
+        <span className={`status-badge ${order.status === "confirmed" ? "status-live" : ""}`}>
+          {pending && !hold ? t("Hold ran out") : ORDER_STATUS_LABEL[order.status]}
         </span>
       </div>
-      <SupportLink eventId={order.eventId} orderId={order.id} label={t("Get help with this order")} />
-      <CalendarActions event={{ id: order.eventId, title: state.events.find((event) => event.id === order.eventId)?.title ?? order.eventTitle, startAt: state.events.find((event) => event.id === order.eventId)?.date ?? order.eventDate, venue: state.events.find((event) => event.id === order.eventId)?.venue ?? order.venue, address: state.events.find((event) => event.id === order.eventId)?.city ?? order.city, url: `${typeof window === "undefined" ? "" : window.location.origin}/events/${order.eventId}` }} />
-      {order.status === "cancelled" ? (
+
+      <div className="summary-lines order-lines">
+        {order.items.map((item) => (
+          <div key={item.id}>
+            <span>
+              {item.quantity} × {item.ticket_type_name}
+              {item.seats?.length ? ` (${item.seats.join("; ")})` : ""}
+            </span>
+            <span>{price(item.subtotal_kzt)}</span>
+          </div>
+        ))}
+      </div>
+
+      {order.refund && (
         <Notice>
-          {t("This order was cancelled by the organizer. Its tickets are no longer valid.")}</Notice>
-      ) : (
+          {t("Refunded {price} on {eventDate}{n2}. The tickets are no longer valid.{n3}", {
+            price: price(order.refund.amount_kzt),
+            eventDate: eventDate(order.refund.created_at, order.event_timezone, { day: "numeric", month: "long" }),
+            n2: order.refund.reason ? ` — ${order.refund.reason}` : "",
+            n3: order.refund.is_simulated ? t(" (Simulated refund: no money moved.)") : "",
+          })}
+        </Notice>
+      )}
+      {order.status === "cancelled" && !order.refund && (
+        <Notice>{t("This order was cancelled. Its tickets are no longer valid.")}</Notice>
+      )}
+      {order.status === "expired" && <Notice>{t("The checkout hold ran out before payment.")}</Notice>}
+
+      <div className="button-row">
+        <SupportLink eventId={order.event_id} orderId={order.id} label={t("Get help with this order")} />
+        {order.status === "confirmed" && upcoming && order.calendar_links?.google && (
+          <a className="btn btn-secondary" href={order.calendar_links.google} target="_blank" rel="noreferrer">
+            <Icon name="calendar" size={16} />{" "}{t("Google Calendar")}</a>
+        )}
+        {order.status === "confirmed" && upcoming && (
+          <a className="btn btn-secondary" href={api.events.calendarFile(order.event_id)} download>
+            <Icon name="calendar" size={16} />{" "}{t("Calendar file")}</a>
+        )}
+        {order.status === "confirmed" && isBuyer && tickets.length > 1 && (
+          <a className="btn btn-secondary" href={api.orders.pdf(order.id)} download>
+            <Icon name="download" size={16} />{" "}{t("All tickets (PDF)")}</a>
+        )}
+      </div>
+
+      {tickets.length > 0 && (
         <>
           <div className="section-heading tickets-section-heading">
             <h2>{t("Your tickets")}</h2>
-            <span className="muted">{t("Each guest has their own reference.")}</span>
+            <span className="muted">{t("Each guest has their own QR code.")}</span>
           </div>
           <div className="admission-grid">
-            {order.lines.flatMap((line, lineIndex) =>
-              line.admissions.map((admission, index) => {
-                const qr = qrPath(admission.id);
-                return (
-                  <article className="admission-ticket" key={admission.id}>
-                    <div className="admission-body">
-                      <span className="eyebrow">{t("BILETFLOW / ADMIT ONE")}</span>
-                      <h3>{line.name}</h3>
-                      <p>
-                        {order.name} {t("· Guest")}{" "}
-                        {order.lines
-                          .slice(0, lineIndex)
-                          .reduce((sum, item) => sum + item.quantity, 0) +
-                          index +
-                          1}
-                      </p>
-                      <div className="admission-code">
-                        <svg
-                          width="115"
-                          height="115"
-                          viewBox={`0 0 ${qr.size} ${qr.size}`}
-                          role="img"
-                          aria-label={t("QR code for ticket {id}", { id: admission.id })}
-                        >
-                          <rect width="100%" height="100%" fill="#fff" />
-                          <path d={qr.path} fill="#1a130d" />
-                        </svg>
-                        <span>
-                          <strong>
-                            {admission.checkedIn
-                              ? t("Checked in")
-                              : t("Ready for your night")}
-                          </strong>
-                          <small>
-                            {t("Demo ticket")}<br />
-                            {t("Not valid for a real event")}</small>
-                        </span>
-                      </div>
-                      <code>{admission.id}</code>
-                      <SupportLink eventId={order.eventId} orderId={order.id} ticketId={admission.id} label={t("Get help with this ticket")} />
-                    </div>
-                    <TicketExportActions order={order} admission={admission} ticketType={line.name} />
-                  </article>
-                );
-              }),
-            )}
+            {tickets.map((ticket) => (
+              <TicketCard key={ticket.id} ticket={ticket} />
+            ))}
           </div>
         </>
       )}
-      <p className="order-note">
-        {t("These tickets are part of the frontend preview. Orders are saved only in this browser.")}</p>
+
+      {order.status === "confirmed" && isBuyer && upcoming && (
+        <div className="order-note">
+          {free ? (
+            <details>
+              <summary>{t("Can’t make it? Cancel this registration")}</summary>
+              <form
+                className="stack-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const reason = String(new FormData(e.currentTarget).get("reason") ?? "").trim();
+                  void act("unregister", () => api.orders.cancelRegistration(order.id, reason), t("Your registration was cancelled."));
+                }}
+              >
+                <label>{t("Reason (optional)")}<input name="reason" maxLength={500} />
+                </label>
+                <button className="btn btn-secondary" disabled={!!busy}>
+                  {busy === "unregister" ? t("Cancelling…") : t("Cancel registration")}
+                </button>
+              </form>
+            </details>
+          ) : (
+            <p>{t("Need a refund? Refunds for paid tickets are handled by the organizer.")}{" "}
+              <Link className="text-link" href={`/support/new?event=${order.event_id}&order=${order.id}`}>{t("Ask for a refund")}</Link>
+            </p>
+          )}
+        </div>
+      )}
     </main>
   );
 }
+
 function MissingEvent() {
-  const { t } = useI18n();
+  const t = useT();
   return (
     <main className="workspace">
       <EmptyState

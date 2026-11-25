@@ -1,7 +1,5 @@
 .support-workspace { max-width: 1200px; }
 .support-workspace .page-intro h1, .support-workspace .intro-description { overflow-wrap: anywhere; }
-.support-demo-note { display: flex; align-items: flex-start; gap: 12px; border: 1px solid var(--color-line); border-radius: 6px; padding: 15px 18px; margin-bottom: 28px; color: var(--color-muted); font-size: 12px; line-height: 1.7; }
-.support-demo-note svg { flex-shrink: 0; margin-top: 2px; color: var(--color-ember); }
 .support-filters { display: flex; gap: 16px; align-items: end; margin: 26px 0 16px; }
 .support-filters label { display: flex; flex-direction: column; gap: 9px; font-size: 12px; color: var(--color-muted); }
 .support-filters .support-search { flex: 1; }

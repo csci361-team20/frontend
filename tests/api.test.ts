@@ -8,6 +8,7 @@ const user = {
   email: "dulat@example.com",
   created_at: "2026-10-15T08:00:00Z",
 };
+const parsed = { ...user, is_email_verified: false, is_platform_admin: false, preferred_language: "en" };
 const registration = { full_name: user.full_name, email: user.email, password: "test-password" };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
   status,
@@ -20,8 +21,8 @@ test("registration and profile reads use the shared client and actual user contr
     calls.push({ path: String(input), init });
     return json({ ...user, password_hash: "must-not-be-returned-by-client" });
   } });
-  assert.deepEqual(await client.users.register(registration), user);
-  assert.deepEqual(await client.users.get(user.id), user);
+  assert.deepEqual(await client.users.register(registration), parsed);
+  assert.deepEqual(await client.users.get(user.id), parsed);
   assert.equal(calls[0].path, "/api/backend/users");
   assert.equal(calls[0].init?.method, "POST");
   assert.deepEqual(JSON.parse(String(calls[0].init?.body)), registration);
@@ -31,7 +32,8 @@ test("registration and profile reads use the shared client and actual user contr
   assert.equal(calls[1].init?.body, undefined);
   assert.equal(new Headers(calls[1].init?.headers).has("Content-Type"), false);
   for (const call of calls) {
-    assert.equal(call.init?.credentials, "omit");
+    // Same-origin so the session cookie reaches the proxy; tokens never touch the page
+    assert.equal(call.init?.credentials, "same-origin");
     assert.equal(call.init?.cache, "no-store");
     assert.equal(new Headers(call.init?.headers).has("Authorization"), false);
   }
@@ -60,7 +62,8 @@ test("FastAPI validation messages are readable without copying submitted passwor
   await assert.rejects(client.users.register(registration), (error: unknown) => {
     assert.ok(error instanceof ApiError);
     assert.equal(error.status, 422);
-    assert.match(error.message, /full name: Value error/);
+    assert.match(error.message, /full name: Full name must contain/);
+    assert.doesNotMatch(error.message, /Value error/);
     assert.match(error.message, /password: String should/);
     assert.doesNotMatch(error.message, /secret|bad-name-123/);
     return true;
@@ -101,7 +104,7 @@ test("invalid profile IDs never become backend requests", async () => {
 
 test("network failures provide a connection error", async () => {
   const client = createApiClient({ fetch: async () => { throw new TypeError("fetch failed"); } });
-  await assert.rejects(client.users.register(registration), /Could not reach the account service/);
+  await assert.rejects(client.users.register(registration), /Could not reach BiletFlow/);
 });
 
 const waitForAbort: typeof fetch = async (_input, init) => new Promise<Response>((_resolve, reject) => {
@@ -117,4 +120,35 @@ test("slow requests time out and cancelled profile reads remain cancellable", as
   controller.abort();
   await assert.rejects(pending, (error: unknown) => error instanceof DOMException && error.name === "AbortError");
   await assert.rejects(client.users.get(user.id, { signal: controller.signal }), (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+});
+
+test("sign-in posts to the cookie route, never to the backend directly", async () => {
+  const calls: { path: string; init: RequestInit | undefined }[] = [];
+  const client = createApiClient({ fetch: async (input, init) => {
+    calls.push({ path: String(input), init });
+    return json({ signedIn: true });
+  } });
+  await client.auth.signIn("dana@example.com", "correct-horse-42");
+  await client.auth.signOut();
+  assert.equal(calls[0].path, "/api/auth/login");
+  assert.deepEqual(JSON.parse(String(calls[0].init?.body)), { email: "dana@example.com", password: "correct-horse-42" });
+  assert.equal(calls[1].path, "/api/auth/logout");
+  assert.equal(calls[1].init?.method, "POST");
+});
+
+test("wrong passwords show the backend message", async () => {
+  const client = createApiClient({ fetch: async () => json({ detail: "Incorrect email or password" }, 401) });
+  await assert.rejects(client.auth.signIn("a@b.kz", "nope"), /Incorrect email or password/);
+});
+
+test("queries skip empty values and repeat list values; 204 resolves to null", async () => {
+  const paths: string[] = [];
+  const client = createApiClient({ fetch: async (input) => {
+    paths.push(String(input));
+    return paths.length === 1 ? json([]) : new Response(null, { status: 204 });
+  } });
+  await client.request("/events", { query: { q: "jazz night", city: "", action: ["a", "b"], page: 2, skip: undefined } });
+  assert.equal(paths[0], "/api/backend/events?q=jazz+night&action=a&action=b&page=2");
+  assert.equal(await client.request("/x", { method: "DELETE" }), null);
+  assert.equal(client.fileUrl("/tickets/1/pdf"), "/api/backend/tickets/1/pdf");
 });
