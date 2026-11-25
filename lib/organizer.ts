@@ -1,7 +1,7 @@
 /** Organizer-side data as the BiletFlow backend returns it. */
 
 import type { ApiEvent, TicketType } from "./events";
-import { tk, translatedRecord } from "./i18n";
+import { dateTimeZone, tk, translatedRecord } from "./i18n";
 
 export type StaffRole = "owner" | "manager" | "checkin_staff" | "support_staff";
 
@@ -193,15 +193,16 @@ export type CheckInRecord = {
 /** Local date and time inputs (Kazakhstan, UTC+5) ↔ ISO instants. */
 export function toLocalInputs(iso: string | null | undefined, timeZone = "Asia/Almaty") {
   if (!iso) return { date: "", time: "" };
+  const date = new Date(iso);
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
+    timeZone: dateTimeZone(date, timeZone),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).formatToParts(new Date(iso));
+  }).formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
 }

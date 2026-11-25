@@ -146,9 +146,16 @@ const KK_WEEKDAYS_SHORT = ["жс", "дс", "сс", "ср", "бс", "жм", "сн
  * Format a date in `lang`. Kazakh is put together here, because many browsers
  * and phones lack Kazakh month names and would show "M11" instead.
  */
+export function dateTimeZone(date: Date, timeZone?: string) {
+  return (timeZone === "Asia/Almaty" || timeZone === "Asia/Qostanay") && date.getTime() >= Date.UTC(2024, 1, 29, 18)
+    ? "Etc/GMT-5"
+    : timeZone;
+}
+
 export function formatDate(lang: Lang, date: Date, options: Intl.DateTimeFormatOptions) {
-  if (lang !== "kk") return new Intl.DateTimeFormat(localeOf(lang), options).format(date);
-  const { dateStyle, timeStyle, timeZone } = options;
+  const displayOptions = { ...options, timeZone: dateTimeZone(date, options.timeZone) };
+  if (lang !== "kk") return new Intl.DateTimeFormat(localeOf(lang), displayOptions).format(date);
+  const { dateStyle, timeStyle, timeZone } = displayOptions;
   const want = dateStyle || timeStyle
     ? {
         day: dateStyle ? "numeric" : undefined,
@@ -158,7 +165,7 @@ export function formatDate(lang: Lang, date: Date, options: Intl.DateTimeFormatO
         hour: timeStyle ? "2-digit" : undefined,
         minute: timeStyle ? "2-digit" : undefined,
       }
-    : options;
+    : displayOptions;
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
       .formatToParts(date)

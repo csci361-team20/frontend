@@ -23,7 +23,9 @@ export function useLoad<T>(key: string, load: (signal: AbortSignal) => Promise<T
   useEffect(() => {
     const controller = new AbortController();
     load(controller.signal).then(
-      (data) => setState({ status: "ready", data, key }),
+      (data) => {
+        if (!controller.signal.aborted) setState({ status: "ready", data, key });
+      },
       (error: unknown) => {
         if (controller.signal.aborted) return;
         const failure = error instanceof Error ? error : new Error(tr("Something went wrong."));
